@@ -6,7 +6,7 @@ const int pinInterrupt = D7;
 int cont = 0;
 unsigned long int tempoAnterior;
 unsigned long int tempoAtual;
-unsigned long int deboucingTime = 150;
+unsigned long int deboucingTime = 100;
 
 void ICACHE_RAM_ATTR interrupcao(){
   if(estado^digitalRead(pinInterrupt)){
