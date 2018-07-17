@@ -3,14 +3,24 @@
 volatile int estado = 0;
 const int Rele = D3;
 const int pinInterrupt = D7;
+int cont = 0;
+unsigned long int tempoAnterior;
+unsigned long int tempoAtual;
+unsigned long int deboucingTime = 150;
 
 void ICACHE_RAM_ATTR interrupcao(){
   if(estado^digitalRead(pinInterrupt)){
+  if(abs(millis() - tempoAnterior) > deboucingTime){
+    cont++;
     estado = !estado;
-    Serial.println("Mudou estado");  
-    Serial.println(estado);
-    delay(10);
+    tempoAnterior = millis();
+    Serial.print("Mudou estado: ");  
+    Serial.print(estado);
+    Serial.print(" Vez: ");
+    Serial.println(cont);
   }
+  }
+  
 }
 
 void setup() {
