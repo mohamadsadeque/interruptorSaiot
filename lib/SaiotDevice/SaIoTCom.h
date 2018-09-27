@@ -5,7 +5,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 
-#define rotaDateTime "http://dev.api.saiot.ect.ufrn.br/v1/device/history/datetime"
+#define rotaDateTime "http://api.saiot.ect.ufrn.br/v1/device/history/datetime"
 
 typedef void (*functionPointer)(char*, uint8_t*, unsigned int); //definido assim pelo MQTT_CALLBACK_SIGNATURE;
 

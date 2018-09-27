@@ -10,9 +10,9 @@
 #define maxSensors 5
 #define maxControllers 5
 //Params conexão SaIoT server v1.7
-#define HOST "dev.api.saiot.ect.ufrn.br" 
-#define hostHttp "http://dev.api.saiot.ect.ufrn.br/v1/device/auth/login" 
-#define PORT  8001 //MQTT 
+#define HOST "api.saiot.ect.ufrn.br" 
+#define hostHttp "http://api.saiot.ect.ufrn.br/v1/device/auth/login" 
+#define PORT  8000 //MQTT 
 #define POSTDISPOSITIVO "/manager/post/device/" 
 
 //typedef void (*fncpt)(String); //ponteiro pra função
