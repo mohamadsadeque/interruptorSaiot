@@ -1,0 +1,5 @@
+{
+    "terminal.integrated.env.windows": {
+        "PATH": "C:\\Users\\do lar\\.platformio\\penv\\Scripts;C:\\Python27\\;C:\\Python27\\Scripts;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files\\doxygen\\bin;C:\\Program Files\\nodejs\\;C:\\Program Files\\LLVM\\bin;C:\\Users\\do lar\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Program Files\\Microsoft VS Code\\bin;C:\\Users\\do lar\\AppData\\Roaming\\npm;C:\\Python27\\;C:\\Python27\\Scripts;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files\\doxygen\\bin;C:\\Program Files\\nodejs\\;C:\\Program Files\\LLVM\\bin;C:\\Users\\do lar\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Program Files\\Microsoft VS Code\\bin;C:\\Users\\do lar\\AppData\\Roaming\\npm"
+    }
+}

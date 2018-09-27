@@ -1,2 +1,0 @@
-Socket	KEYWORD1
-emit	KEYWORD1
