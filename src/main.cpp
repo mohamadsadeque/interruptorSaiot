@@ -9,6 +9,7 @@ WiFiClient espClient;
 //Funçoes utilizadas
 void callback(char *topic, byte *payload, unsigned int length);
 void sendEstadoAtual();
+void acenderApagar(String retorno);
 
 //Parametros de funcionamento
 volatile int estado = 0;
@@ -71,8 +72,12 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (interruptor.getSerial() + contOnOff.getKey()).c_str()) == 0)
   {
     Serial.println("SerialLog: " + payloadS);
-    estado = !estado;
+    acenderApagar(payloadS);
   }
+}
+
+void acenderApagar(String retorno){
+  digitalWrite(Rele, retorno.toInt());
 }
 
 /*void sendEstadoAtual()
