@@ -44,8 +44,14 @@ String SaIoTCom::getDateNow(){
 };
 
 boolean SaIoTCom::publishData(String data){
-  return mqttClient.publish("/history/post/logs/sensor/",data.c_str());
+  return mqttClient.publish(rotaPSensor,data.c_str());
   //Serial.println(data.c_str());
+}
+boolean SaIoTCom::putMeController(String data){
+  bool z = mqttClient.publish(rotaPController,data.c_str());
+  Serial.println("Meh");
+  Serial.println(z);
+  return z;
 }
 
 void SaIoTCom::setServerPort(const char* server, uint16_t port){

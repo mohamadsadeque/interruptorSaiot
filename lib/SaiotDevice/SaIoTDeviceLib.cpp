@@ -1,25 +1,25 @@
 #include "SaIoTDeviceLib.h"
 
-
-SaIoTDeviceLib::SaIoTDeviceLib(){
-};
+SaIoTDeviceLib::SaIoTDeviceLib(){};
 SaIoTDeviceLib::SaIoTDeviceLib(String _name, String _serial, String _email)
 {
   name = _name;
   serial = _serial;
   email = _email;
-
 };
-void SaIoTDeviceLib::preSetCom(WiFiClient& espClient, fptr _function){
+void SaIoTDeviceLib::preSetCom(WiFiClient &espClient, fptr _function)
+{
   objCom.setClient(espClient);
   objCom.setCallback(_function);
   //fptr = *SaIoTDeviceLib::callback(char* topic, byte* payload, unsigned int length);
   //objCom.setCallback(&SaIoTDeviceLib::callback(char* topic, byte* payload, unsigned int length));
 };
-void SaIoTDeviceLib::startDefault(String s){
+void SaIoTDeviceLib::startDefault(String s)
+{
   startCom(HOST, PORT, hostHttp, POSTDISPOSITIVO, s);
 };
-void SaIoTDeviceLib::startCom(const char* hostSend, uint16_t portSend, const char* hostTok, const char* hostCd, String pUser){
+void SaIoTDeviceLib::startCom(const char *hostSend, uint16_t portSend, const char *hostTok, const char *hostCd, String pUser)
+{
   objCom.setServerPort(hostSend, portSend);
   //wm
   WiFiManager wifi;
@@ -27,33 +27,56 @@ void SaIoTDeviceLib::startCom(const char* hostSend, uint16_t portSend, const cha
   this->setToken(objCom.getToken(hostTok, email, pUser, serial));
   //fim wm
   String keys[qtdControllers];
-  for(int i=0; i<qtdControllers; i++){
-    keys[i]+=controllers[i]->getKey();
+  for (int i = 0; i < qtdControllers; i++)
+  {
+    keys[i] += controllers[i]->getKey();
   }
   objCom.registerDevice(serial, email, token, this->getJconf(), hostCd, keys, qtdControllers);
 };
-void SaIoTDeviceLib::setToken(String _token){
+void SaIoTDeviceLib::setToken(String _token)
+{
   token = _token;
 };
-void SaIoTDeviceLib::setEmail(String _email){
+void SaIoTDeviceLib::setEmail(String _email)
+{
   email = _email;
 };
 
-boolean SaIoTDeviceLib::handleLoop(){
-  for(int i=0;i<qtdSensors;i++){
-    if(sensors[i]->getReport()){
-      String payload =""; //VER COMO FICARIA PRA TRATAR A DATA
+bool SaIoTDeviceLib::reportController(String controllerKey, int value){
+  String JSON;
+  JSON += "{\"key\":\"" + controllerKey + "\",\"value\":" + String(value) + "}";
+  objCom.putMeController(JSON);
+}
+
+bool SaIoTDeviceLib::reportController(String controllerKey, String value){
+  String JSON;
+  JSON += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + controllerKey + "\",\"value\":\"" + value + "\"}}";
+  objCom.putMeController(JSON);
+}
+
+bool SaIoTDeviceLib::handleLoop()
+{
+  for (int i = 0; i < qtdSensors; i++)
+  {
+    if (sensors[i]->getReport())
+    {
+      String payload = ""; //VER COMO FICARIA PRA TRATAR A DATA
       //payload += "{\"token\":\""+token+"\",\"data\":{\"serial\":\""+serial+"\",\"key\":\""+sensors[i]->getKey()+"\",\"value\":";
-      if(sensors[i]->getByField("type") == "number"){
-        payload+= "{\"token\":\""+token+"\",\"data\":{\"serial\":\""+serial+"\",\"key\":\""+sensors[i]->getKey()+"\",\"value\":" + sensors[i]->getValue()+",\"dateTime\":\""+sensors[i]->getLastDate()+"\"}}";
-      }else{
-        payload+= "{\"token\":\""+token+"\",\"data\":{\"serial\":\""+serial+"\",\"key\":\""+sensors[i]->getKey()+"\",\"value\":\"" +sensors[i]->getValueStr()+"\",\"dateTime\":\""+sensors[i]->getLastDate()+"\"}}";
+      if (sensors[i]->getByField("type") == "number")
+      {
+        payload += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + sensors[i]->getKey() + "\",\"value\":" + sensors[i]->getValue() + ",\"dateTime\":\"" + sensors[i]->getLastDate() + "\"}}";
       }
-      
-      
-      if(objCom.publishData(payload)){
+      else
+      {
+        payload += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + sensors[i]->getKey() + "\",\"value\":\"" + sensors[i]->getValueStr() + "\",\"dateTime\":\"" + sensors[i]->getLastDate() + "\"}}";
+      }
+
+      if (objCom.publishData(payload))
+      {
         Serial.println("Dado enviado!");
-      }else{
+      }
+      else
+      {
         Serial.print("Erro ao enviar o dado: ");
         Serial.println(payload);
       }
@@ -61,52 +84,69 @@ boolean SaIoTDeviceLib::handleLoop(){
   }
   return objCom.handleCom();
 }
-String SaIoTDeviceLib::getName(void){
+String SaIoTDeviceLib::getName(void)
+{
   return name;
 }
-String SaIoTDeviceLib::getSerial(void){
+String SaIoTDeviceLib::getSerial(void)
+{
   return serial;
 }
-String SaIoTDeviceLib::getToken(void){
+String SaIoTDeviceLib::getToken(void)
+{
   return token;
 }
-String SaIoTDeviceLib::getEmail(void){
+String SaIoTDeviceLib::getEmail(void)
+{
   return email;
 }
-String SaIoTDeviceLib::getJconf(void){
+String SaIoTDeviceLib::getJconf(void)
+{
   String JSON;
-  JSON += "{\"token\":\""+token+"\",\"data\":{\"name\":\""+name +"\",\"serial\":\""+ serial+"\"";
-  if(qtdControllers>0){
+  JSON += "{\"token\":\"" + token + "\",\"data\":{\"name\":\"" + name + "\",\"serial\":\"" + serial + "\"";
+  if (qtdControllers > 0)
+  {
     JSON += ",\"controllers\":[";
-    for(int i=0; i<qtdControllers; i++){
+    for (int i = 0; i < qtdControllers; i++)
+    {
       JSON += controllers[i]->getJsonConfig();
-      if(i==qtdControllers-1){
+      if (i == qtdControllers - 1)
+      {
         JSON += "]";
-      }else{
-        JSON += ",";
       }
-    }
-  }  
-  if(qtdSensors>0){
-    JSON += ",\"sensors\":[";
-    for(int i=0; i<qtdSensors; i++){
-      JSON += sensors[i]->getJsonConfig();
-      if(i==qtdSensors-1){
-        JSON += "]";
-      }else{
+      else
+      {
         JSON += ",";
       }
     }
   }
-  JSON +="}}"; 
+  if (qtdSensors > 0)
+  {
+    JSON += ",\"sensors\":[";
+    for (int i = 0; i < qtdSensors; i++)
+    {
+      JSON += sensors[i]->getJsonConfig();
+      if (i == qtdSensors - 1)
+      {
+        JSON += "]";
+      }
+      else
+      {
+        JSON += ",";
+      }
+    }
+  }
+  JSON += "}}";
   return JSON;
 }
 
-int SaIoTDeviceLib::getNSensors(void){
+int SaIoTDeviceLib::getNSensors(void)
+{
   return qtdSensors;
 }
 
-int SaIoTDeviceLib::getNControllers(void){
+int SaIoTDeviceLib::getNControllers(void)
+{
   return qtdControllers;
 }
 
@@ -136,7 +176,3 @@ void SaIoTDeviceLib::addController(String _key, String _type, String _tag, Strin
 {
   controllers[qtdControllers++] = new SaIoTController(_key, _type, _tag, _description, _min, _step, _max);
 }*/
-
-
-
-

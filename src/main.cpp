@@ -13,8 +13,8 @@ void acenderApagar(String retorno);
 
 //Parametros de funcionamento
 volatile int estado = 0;
-const int Rele = D3;
-const int pinInterrupt = D7;
+//const int rele = D1;
+const int relePin = D1;
 unsigned long int tempoAnterior;
 unsigned long int tempoAtual;
 unsigned long int deboucingTime = 100;
@@ -23,11 +23,11 @@ unsigned long int deboucingTime = 100;
 SaIoTDeviceLib interruptor("Device_interruptor", "2709181123LAB", "ricardo@email.com");
 String senha = "12345678910";
 //Controlador
-SaIoTController contOnOff("intpS", "interruptorLab", "onoff");
+SaIoTController contOnOff("intpS", "interruptorLab", "button");
 
 void ICACHE_RAM_ATTR interrupcao()
 {
-  if (estado ^ digitalRead(pinInterrupt))
+  if (estado ^ digitalRead(relePin))
   {
     if (abs(millis() - tempoAnterior) > deboucingTime)
     {
@@ -40,9 +40,9 @@ void ICACHE_RAM_ATTR interrupcao()
 
 void setup()
 {
-  pinMode(Rele, OUTPUT);
-  pinMode(pinInterrupt, INPUT);
-  attachInterrupt(digitalPinToInterrupt(pinInterrupt), interrupcao, CHANGE); //Configurando a interrupção
+  pinMode(relePin, OUTPUT);
+  //pinMode(relePin, INPUT);
+  //attachInterrupt(digitalPinToInterrupt(relePin), interrupcao, CHANGE); //Configurando a interrupção
   interruptor.addController(contOnOff);
   Serial.begin(115200);
   Serial.println("START");
@@ -52,7 +52,6 @@ void setup()
 
 void loop()
 {
-  digitalWrite(Rele, estado);
   interruptor.handleLoop();
 }
 
@@ -77,7 +76,11 @@ void callback(char *topic, byte *payload, unsigned int length)
 }
 
 void acenderApagar(String retorno){
-  digitalWrite(Rele, retorno.toInt());
+  digitalWrite(relePin, bool(retorno.toInt()));
+  delay(500); //mudar de lugar
+  digitalWrite(relePin,0);
+  interruptor.reportController(contOnOff.getKey(),"0");
+  Serial.println("Mandei");
 }
 
 /*void sendEstadoAtual()
