@@ -44,8 +44,8 @@ void SaIoTDeviceLib::setEmail(String _email)
 
 bool SaIoTDeviceLib::reportController(String controllerKey, int value){
   String JSON;
-  JSON += "{\"key\":\"" + controllerKey + "\",\"value\":" + String(value) + "}";
-  objCom.putMeController(JSON);
+  JSON += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + controllerKey + "\",\"value\":" + String(value) + "}";
+  return objCom.putMeController(JSON);
 }
 
 bool SaIoTDeviceLib::reportController(String controllerKey, String value){

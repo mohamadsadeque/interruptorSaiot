@@ -49,8 +49,7 @@ boolean SaIoTCom::publishData(String data){
 }
 boolean SaIoTCom::putMeController(String data){
   bool z = mqttClient.publish(rotaPController,data.c_str());
-  Serial.println("Meh");
-  Serial.println(z);
+  Serial.println(data);
   return z;
 }
 

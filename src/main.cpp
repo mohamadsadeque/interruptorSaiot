@@ -2,47 +2,51 @@
 #include <SaIoTDeviceLib.h>
 
 //Parametros da conexão
-#define rotaRetorno "/control/put/me/"
-
 WiFiClient espClient;
 
 //Funçoes utilizadas
 void callback(char *topic, byte *payload, unsigned int length);
 void sendEstadoAtual();
-void acenderApagar(String retorno);
+void acenderApagar(bool retorno);
 
 //Parametros de funcionamento
-volatile int estado = 0;
+volatile bool estado = 0;
+volatile bool reportServer = false;
 //const int rele = D1;
-const int relePin = D1;
-unsigned long int tempoAnterior;
-unsigned long int tempoAtual;
-unsigned long int deboucingTime = 100;
+const int relePin = D7;
+const int buttonPin = D3;
+volatile unsigned long int tempoAnterior = 0;
+//unsigned long int tempoAtual;
+unsigned long int deboucingTime = 200;
 
 //Device
-SaIoTDeviceLib interruptor("Device_interruptor", "2709181123LAB", "ricardo@email.com");
+SaIoTDeviceLib interruptor("Device_interruptor", "23102018LAB", "gm@email.com");
 String senha = "12345678910";
 //Controlador
-SaIoTController contOnOff("intpS", "interruptorLab", "button");
+SaIoTController contOnOff("intpS", "interruptorLab", "onoff");
 
 void ICACHE_RAM_ATTR interrupcao()
 {
-  if (estado ^ digitalRead(relePin))
+  //if (estado ^ digitalRead(buttonPin))
+  //{
+  if (abs(millis() - tempoAnterior) > deboucingTime)
   {
-    if (abs(millis() - tempoAnterior) > deboucingTime)
-    {
-      estado = !estado;
-      tempoAnterior = millis();
-      //Deverá enviar os dados pro server aqui, após atualizar
-    }
+    estado = !estado;
+    tempoAnterior = millis();
+    acenderApagar(estado);
+    reportServer = true;
+    //Deverá enviar os dados pro server aqui, após atualizar
   }
+  //}
 }
+
 
 void setup()
 {
   pinMode(relePin, OUTPUT);
-  //pinMode(relePin, INPUT);
-  //attachInterrupt(digitalPinToInterrupt(relePin), interrupcao, CHANGE); //Configurando a interrupção
+  digitalWrite(buttonPin,HIGH);
+  pinMode(buttonPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), interrupcao, FALLING); //Configurando a interrupção
   interruptor.addController(contOnOff);
   Serial.begin(115200);
   Serial.println("START");
@@ -71,21 +75,23 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (interruptor.getSerial() + contOnOff.getKey()).c_str()) == 0)
   {
     Serial.println("SerialLog: " + payloadS);
-    acenderApagar(payloadS);
+    acenderApagar(bool(payloadS.toInt()));
   }
 }
 
-void acenderApagar(String retorno){
-  digitalWrite(relePin, bool(retorno.toInt()));
-  delay(500); //mudar de lugar
-  digitalWrite(relePin,0);
-  interruptor.reportController(contOnOff.getKey(),"0");
-  Serial.println("Mandei");
+void acenderApagar(bool retorno)
+{
+  digitalWrite(relePin, retorno);
+  if (reportServer)
+  {
+    Serial.print(estado);
+    Serial.print(" : ");
+    Serial.println(reportServer);
+    if (interruptor.reportController(contOnOff.getKey(), estado)){
+      Serial.println("Rolou");
+    }
+    reportServer = false;
+  }
 }
 
-/*void sendEstadoAtual()
-{
-  String JSON;
-  JSON += "{\"key\":\"" + contOnOff.getKey() + "\",\"value\":" + String(estado) + "}";
-  mqttClient.publish(rotaRetorno, JSON.c_str());
-}*/
+
