@@ -1,62 +1,89 @@
-#include <Arduino.h>
+/*
+Projeto para controle da porta de sala
+
+v 1.1.2
+
+Software:
+  Danielly
+  Patricio Oliveira
+  Ricardo Cavalcanti
+  Mohamad Sadeque
+Hardware:
+  Wesley Wagner
+  Mohamad Sadeque
+
+*/
+
+#include <ArduinoOTA.h>
+#include <ESP8266WiFi.h>
 #include <SaIoTDeviceLib.h>
+
+volatile bool stateLED = true;
+const int LED = 13;
+unsigned long int timeLED = 500;
+unsigned long int lastTimeLED = 500;
+unsigned long int lastTime = 0;
+
+const int RELE = 12;
+volatile const int BUTTON  = 14;
+void lightOn();
+void lightOff();
 
 //Parametros da conexão
 WiFiClient espClient;
 
-//Funçoes utilizadas
-void callback(char *topic, byte *payload, unsigned int length);
-void sendEstadoAtual();
-void acenderApagar(bool retorno);
-
-//Parametros de funcionamento
-volatile bool estado = 0;
-volatile bool reportServer = false;
-//const int rele = D1;
-const int relePin = D7;
-const int buttonPin = D3;
-volatile unsigned long int tempoAnterior = 0;
-//unsigned long int tempoAtual;
-unsigned long int deboucingTime = 200;
-
-//Device
-SaIoTDeviceLib interruptor("Device_interruptor", "23102018LAB", "gm@email.com");
+//Parametros do device
+SaIoTDeviceLib sonoff("InterruptorLab", "IntLab", "ricardo@email.com");
+SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"ON\"}");
 String senha = "12345678910";
-//Controlador
-SaIoTController contOnOff("intpS", "interruptorLab", "onoff");
 
-void ICACHE_RAM_ATTR interrupcao()
-{
-  //if (estado ^ digitalRead(buttonPin))
-  //{
-  if (abs(millis() - tempoAnterior) > deboucingTime)
-  {
-    estado = !estado;
-    tempoAnterior = millis();
-    acenderApagar(estado);
-    reportServer = true;
-    //Deverá enviar os dados pro server aqui, após atualizar
-  }
-  //}
-}
+//Variveis controladores
+volatile bool reconfigura = false;
 
+//Funções controladores
+void interruptor();
+void setReconfigura();
+void setOn(String);
+//Funções MQTT
+void callback(char *topic, byte *payload, unsigned int length);
+//Funções padão
+void setup();
+void loop();
+//funções
+void setupOTA();
 
 void setup()
 {
-  pinMode(relePin, OUTPUT);
-  digitalWrite(buttonPin,HIGH);
-  pinMode(buttonPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(buttonPin), interrupcao, FALLING); //Configurando a interrupção
-  interruptor.addController(contOnOff);
   Serial.begin(115200);
-  Serial.println("START");
-  interruptor.preSetCom(espClient, callback);
-  interruptor.startDefault(senha);
+  //Serial.println("------------setup----------");
+  // pinMode(RECONFIGURAPIN, INPUT_PULLUP);
+  pinMode(BUTTON, INPUT_PULLUP);
+  pinMode(RELE, OUTPUT);
+  delay(80);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), interruptor, CHANGE);
+  sonoff.addController(onOff);
+  sonoff.preSetCom(espClient, callback);
+  sonoff.startDefault(senha);
+  setupOTA();
+  Serial.begin(115200);
 }
 
 void loop()
 {
-  interruptor.handleLoop();
+//Serial.print("leitura butao: ");
+//Serial.println(digitalRead(BUTTON));
+  int tentativa = 0;
+  sonoff.handleLoop();
+ 
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(500);
+    if (++tentativa>=5) {
+      ESP.restart();
+    }
+  }
+  Serial.flush();
+  stateLED ? lightOn() : lightOff();
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -68,30 +95,91 @@ void callback(char *topic, byte *payload, unsigned int length)
   {
     payloadS += (char)payload[i];
   }
-  if (strcmp(topic, interruptor.getSerial().c_str()) == 0)
+  if (strcmp(topic, sonoff.getSerial().c_str()) == 0)
   {
     Serial.println("SerialLog: " + payloadS);
   }
-  if (strcmp(topic, (interruptor.getSerial() + contOnOff.getKey()).c_str()) == 0)
+  if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
   {
-    Serial.println("SerialLog: " + payloadS);
-    acenderApagar(bool(payloadS.toInt()));
+    Serial.println("Value: " + payloadS);
+    setOn(payloadS);
   }
 }
 
-void acenderApagar(bool retorno)
+void setReconfigura()
 {
-  digitalWrite(relePin, retorno);
-  if (reportServer)
+  reconfigura = true;
+}
+
+void setOn(String json)
+{
+  if ( json == "1" )
   {
-    Serial.print(estado);
-    Serial.print(" : ");
-    Serial.println(reportServer);
-    if (interruptor.reportController(contOnOff.getKey(), estado)){
-      Serial.println("Rolou");
-    }
-    reportServer = false;
+    stateLED = true;
+    lightOn();
+  }else {
+    stateLED=false;
+    lightOff();
   }
 }
 
 
+
+void setupOTA(){
+
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH) {
+      type = "sketch";
+    } else { // U_SPIFFS
+      type = "filesystem";
+    }
+
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    } else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    } else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    } else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    } else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+  });
+  ArduinoOTA.begin();
+}
+
+void interruptor(){
+  if( millis() - lastTime > 300){
+  stateLED = !stateLED;
+  if(stateLED){
+  sonoff.reportController("on", "1");
+  }
+  else{
+  sonoff.reportController("on", "0");
+  }
+  lastTime = millis();
+  }
+}
+void lightOn(){
+  digitalWrite(RELE, HIGH);
+  digitalWrite(LED, LOW);
+}
+void lightOff(){
+  digitalWrite(RELE, LOW);
+  digitalWrite(LED, HIGH);
+}
