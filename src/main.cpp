@@ -17,23 +17,27 @@ Hardware:
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <SaIoTDeviceLib.h>
+#define CHAVE 14
 
 volatile bool stateLED = true;
-const int LED = 13;
-unsigned long int timeLED = 500;
-unsigned long int lastTimeLED = 500;
+const int LED = 10;
 unsigned long int lastTime = 0;
-
-const int RELE = 12;
-volatile const int BUTTON  = 14;
+unsigned long int delayLeitura = 0;
+bool ultimoEstado;
+short int media = 0;
+short int leituras = 0;
+const int RELE = 13;
+bool lendo = false;
 void lightOn();
 void lightOff();
-
+void report(bool);
+void interrupcao();
+void calcMedia();
 //Parametros da conexão
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("InterruptorLab", "IntLab", "ricardo@email.com");
+SaIoTDeviceLib sonoff("sonoff", "interruptor01", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"ON\"}");
 String senha = "12345678910";
 
@@ -57,13 +61,14 @@ void setup()
   Serial.begin(115200);
   //Serial.println("------------setup----------");
   // pinMode(RECONFIGURAPIN, INPUT_PULLUP);
-  pinMode(BUTTON, INPUT_PULLUP);
+  pinMode(CHAVE, INPUT_PULLUP);
   pinMode(RELE, OUTPUT);
   delay(80);
-  attachInterrupt(digitalPinToInterrupt(BUTTON), interruptor, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(CHAVE), interrupcao, CHANGE);
   sonoff.addController(onOff);
   sonoff.preSetCom(espClient, callback);
   sonoff.startDefault(senha);
+  ultimoEstado = digitalRead(CHAVE);
   setupOTA();
   Serial.begin(115200);
 }
@@ -74,6 +79,9 @@ void loop()
 //Serial.println(digitalRead(BUTTON));
   int tentativa = 0;
   sonoff.handleLoop();
+if(lendo){
+  calcMedia();
+}
  
   while (WiFi.status() != WL_CONNECTED) {
     Serial.println("Connection Failed! Rebooting...");
@@ -83,6 +91,7 @@ void loop()
     }
   }
   Serial.flush();
+
   stateLED ? lightOn() : lightOff();
 }
 
@@ -163,18 +172,7 @@ void setupOTA(){
   ArduinoOTA.begin();
 }
 
-void interruptor(){
-  if( millis() - lastTime > 300){
-  stateLED = !stateLED;
-  if(stateLED){
-  sonoff.reportController("on", "1");
-  }
-  else{
-  sonoff.reportController("on", "0");
-  }
-  lastTime = millis();
-  }
-}
+
 void lightOn(){
   digitalWrite(RELE, HIGH);
   digitalWrite(LED, LOW);
@@ -183,3 +181,45 @@ void lightOff(){
   digitalWrite(RELE, LOW);
   digitalWrite(LED, HIGH);
 }
+
+
+void calcMedia(){
+  if(abs(millis() - delayLeitura ) > 50){
+  if(leituras <= 10 ){
+    if(ultimoEstado^digitalRead(CHAVE)){
+      media++;
+    }
+    leituras++;
+  }
+
+  else{
+    if(media >5){
+      ultimoEstado = !ultimoEstado;
+      stateLED = !stateLED;
+      report(stateLED);
+    }
+    media = 0;
+    leituras = 0;
+    lendo = false;
+  }
+    delayLeitura = millis();
+  }
+}
+
+void interrupcao(){
+  if((abs(millis() - lastTime) > 150) && !lendo ){
+    lendo = true;
+    lastTime = millis();
+  }
+}
+
+void report(bool stateLED){
+  if(stateLED){
+      sonoff.reportController("on", "1");
+  }
+  else{
+      sonoff.reportController("on", "0");
+
+  }
+  }
+
