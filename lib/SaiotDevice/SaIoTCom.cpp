@@ -63,31 +63,51 @@ void SaIoTCom::setCallback(functionPointer f){
 void SaIoTCom::setClient(WiFiClient& espClient){
   mqttClient.setClient(espClient);
 }
-void SaIoTCom::registerDevice(String serial,String user,String token,String jsonConf,const char* hostReg,String keys[], int nKeys){
+void SaIoTCom::registerDevice(String serial, String user, String token, String jsonConf, const char *hostReg, String keys[], int nKeys)
+{
   //#if usedProtocol == MQTT
-  while (!mqttClient.connected()){
-    Serial.println("Tentando se conectar ao Broker MQTT" );
-    if (mqttClient.connect(serial.c_str(),user.c_str(),token.c_str())){
+  int nTentativas = 0;
+  while (!mqttClient.connected())
+  {
+    Serial.println("Tentando se conectar ao Broker MQTT");
+    if (mqttClient.connect(serial.c_str(), user.c_str(), token.c_str()))
+    {
       Serial.println("Conectado!");
       /*Serial.print("JSON CONFIG: ");
       Serial.println(jsonConf);*/
-      if (!mqttClient.subscribe(serial.c_str())){
+      if (!mqttClient.subscribe(serial.c_str()))
+      {
         Serial.println("Error subscribe in Serial topic");
       }
-      for(int i=0;i<nKeys;i++){
-        if(!mqttClient.subscribe((serial+keys[i]).c_str())){
+      for (int i = 0; i < nKeys; i++)
+      {
+        if (!mqttClient.subscribe((serial + keys[i]).c_str()))
+        {
           Serial.println("Error subscribe in keys topics");
         }
-      } 
-      //Serial.println(hostReg);
-      if(mqttClient.publish(hostReg,jsonConf.c_str())){
-          Serial.println("Cadastre o device no SaIoT!");
       }
-    }else {
-      Serial.println("Falha ao Reconectar");
-      Serial.println("Tentando se reconectar em 2 segundos");
-      delay(2000);
+      //Serial.println(hostReg);
+      if (mqttClient.publish(hostReg, jsonConf.c_str()))
+      {
+        Serial.println("Cadastre o device no SaIoT!");
+      }
+      break;
     }
+    else if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("Falha na rede");
+    }
+    else
+    {
+      Serial.println("Falha na conexão com o broker");
+    }
+    if (++nTentativas >= 20)
+    {
+      Serial.println("RESET");
+      ESP.reset(); //dif entre reset e restart?
+    }
+    Serial.println("Tentando se reconectar em 2 segundos");
+    delay(2000);
   }
   //#endif
 }
