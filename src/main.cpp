@@ -34,7 +34,7 @@ void calcMedia();
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLab1", "IntLab1", "ricardo@email.com");
+SaIoTDeviceLib sonoff("IntLab2", "IntLab2", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"ON\"}");
 String senha = "12345678910";
 
@@ -122,10 +122,8 @@ void setOn(String json)
   if ( json == "1" )
   {
     stateLED = true;
-    lightOn();
   }else {
     stateLED=false;
-    lightOff();
   }
 }
 
@@ -167,30 +165,34 @@ void setupOTA(){
     }
   });
   ArduinoOTA.begin();
+
 }
 
 
 void lightOn(){
-  digitalWrite(RELE, LOW);
+  digitalWrite(RELE, HIGH);
   digitalWrite(LED, LOW);
 }
 void lightOff(){
-  digitalWrite(RELE, HIGH);
+  digitalWrite(RELE, LOW);
   digitalWrite(LED, HIGH);
 }
 
 
 void calcMedia(){
-  if(abs(millis() - delayLeitura ) > 50){ // ACima de 5 já  dar break e trocar estados
-  if(leituras <= 10 ){
+  if(abs(millis() - delayLeitura ) > 20){
+  if(leituras < 20 ){
     if(ultimoEstado^digitalRead(CHAVE)){
       media++;
     }
     leituras++;
+    if(media >= 10){
+      leituras = 20;
+    }
   }
 
   else{
-    if(media >5){
+    if(media >= 10){
       ultimoEstado = !ultimoEstado;
       stateLED = !stateLED;
       report(stateLED);
@@ -219,3 +221,4 @@ void report(bool stateLED){
 
   }
   }
+
