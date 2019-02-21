@@ -8,6 +8,8 @@ SaIoTSensor::SaIoTSensor(String _jsonConfig){
 SaIoTSensor::SaIoTSensor(String _key, String _tag, String _unit, String _type){
     jConf += ("{\"key\":\"" + _key + "\",\"unit\":\"" + _unit + "\",\"type\":\"" + _type + "\",\"tag\":\"" + _tag + "\"}");
     key = _key;
+    reportMe = 0;
+    lastDate = "0";
 }
 String SaIoTSensor::getJsonConfig(void){
     return jConf;

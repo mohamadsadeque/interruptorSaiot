@@ -7,30 +7,51 @@ SaIoTDeviceLib::SaIoTDeviceLib(String _name, String _serial, String _email)
   serial = _serial;
   email = _email;
 };
+int SaIoTDeviceLib::tryConnection(unsigned long timeOutSeconds)
+{
+  WiFiManager wifi;
+  if (timeOutSeconds)
+  {
+    wifi.setTimeout(timeOutSeconds);
+  }
+  if (!wifi.autoConnect(serial.c_str()))
+  {
+    Serial.println("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  }
+};
 void SaIoTDeviceLib::preSetCom(WiFiClient &espClient, fptr _function)
 {
   objCom.setClient(espClient);
   objCom.setCallback(_function);
+  objCom.setServerPort(HOST, PORT);
+  tryConnection(0);
   //fptr = *SaIoTDeviceLib::callback(char* topic, byte* payload, unsigned int length);
   //objCom.setCallback(&SaIoTDeviceLib::callback(char* topic, byte* payload, unsigned int length));
 };
-void SaIoTDeviceLib::startDefault(String s)
+void SaIoTDeviceLib::preSetCom(WiFiClient &espClient, fptr _function, unsigned long timeOutSeconds)
+{
+  objCom.setClient(espClient);
+  objCom.setCallback(_function);
+  objCom.setServerPort(HOST, PORT);
+  tryConnection(timeOutSeconds);
+};
+void SaIoTDeviceLib::start(String s)
 {
   startCom(HOST, PORT, hostHttp, POSTDISPOSITIVO, s);
 };
 void SaIoTDeviceLib::startCom(const char *hostSend, uint16_t portSend, const char *hostTok, const char *hostCd, String pUser)
 {
-  objCom.setServerPort(hostSend, portSend);
-  //wm
-  WiFiManager wifi;
-  wifi.autoConnect(serial.c_str());
   this->setToken(objCom.getToken(hostTok, email, pUser, serial));
-  //fim wm
   String keys[qtdControllers];
   for (int i = 0; i < qtdControllers; i++)
   {
     keys[i] += controllers[i]->getKey();
   }
+  Serial.println(this->getJconf());
   objCom.registerDevice(serial, email, token, this->getJconf(), hostCd, keys, qtdControllers);
 };
 void SaIoTDeviceLib::setToken(String _token)
@@ -42,13 +63,15 @@ void SaIoTDeviceLib::setEmail(String _email)
   email = _email;
 };
 
-bool SaIoTDeviceLib::reportController(String controllerKey, int value){
+bool SaIoTDeviceLib::reportController(String controllerKey, int value)
+{
   String JSON;
   JSON += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + controllerKey + "\",\"value\":\"" + String(value) + "\"}}";
   return objCom.putMeController(JSON);
 }
 
-bool SaIoTDeviceLib::reportController(String controllerKey, String value){
+bool SaIoTDeviceLib::reportController(String controllerKey, String value)
+{
   String JSON;
   JSON += "{\"token\":\"" + token + "\",\"data\":{\"serial\":\"" + serial + "\",\"key\":\"" + controllerKey + "\",\"value\":\"" + value + "\"}}";
   return objCom.putMeController(JSON);
@@ -56,6 +79,16 @@ bool SaIoTDeviceLib::reportController(String controllerKey, String value){
 
 bool SaIoTDeviceLib::handleLoop()
 {
+  if (!objCom.connected())
+  {
+    Serial.println("Desconectado do BROKER ERR");
+    String keys[qtdControllers];
+    for (int i = 0; i < qtdControllers; i++)
+    {
+      keys[i] += controllers[i]->getKey();
+    }
+    objCom.registerDevice(serial, email, token, this->getJconf(), POSTDISPOSITIVO, keys, qtdControllers);
+  }
   for (int i = 0; i < qtdSensors; i++)
   {
     if (sensors[i]->getReport())

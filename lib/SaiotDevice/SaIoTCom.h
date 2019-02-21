@@ -13,12 +13,13 @@ typedef void (*functionPointer)(char*, uint8_t*, unsigned int); //definido assim
 
 class SaIoTCom
 {
-  private:  
+  private:
     //WiFiClient espClient;
     PubSubClient mqttClient;
   public:
     SaIoTCom();
     SaIoTCom(WiFiClient& espClient);
+    boolean connected();
     String getToken(String hostHttp,String user, String password, String serial);
     static String getDateNow();
     void setServerPort(const char * server, uint16_t port);

@@ -1,6 +1,5 @@
 #ifndef SaIoTSensor_h
 #define SaIoTSensor_h
-
 #include <Arduino.h>
 #include "SaIoTCom.h"
 
@@ -17,14 +16,14 @@ private:
   bool reportMe;
   double value;
   String valueStr;
-  //Pensar em atributos que vão fora do json de configuração! 
+  //Pensar em atributos que vão fora do json de configuração!
   /*long int deadband = NULL_VALUE,
                     timeout = NULL_VALUE,
                     lastResolution = 0,
                     resolution = NULL_VALUE;
   double value;
 
-  unsigned long lastTimeout = 0; 
+  unsigned long lastTimeout = 0;
   */
   //bool isAcumm = true , isSync = true, isDigital=true; PRECISARIA DISSO?
   // typedef void (*verifyfunct)(void); PONTEIRO P FUNÇÃO DE RETORNO
@@ -40,9 +39,9 @@ public:
 
   String getKey(void); //1
   String getSerial(void); //2
-  //1 e 2: campos necessários sempre que for enviar dados ao server 
+  //1 e 2: campos necessários sempre que for enviar dados ao server
 
-  String getByField(String _field); 
+  String getByField(String _field);
   String getUnit(void);
   String getType(void);
   String getTag(void);

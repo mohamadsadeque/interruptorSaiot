@@ -17,6 +17,13 @@ SaIoTController::SaIoTController(String _key, String _tag, String _tClass)
   key = _key;
 }
 
+SaIoTController::SaIoTController(String _key, String _tag, String _tClass, String valueDefault)
+{
+
+  jConf += ("{\"key\":\"" + _key + "\",\"class\":\"" + _tClass + "\",\"tag\":\"" + _tag + "\",\"value\":\""  + valueDefault +  "\"}");
+  key = _key;
+}
+
 String SaIoTController::getKey(void)
 {
   return key;

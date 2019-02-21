@@ -34,7 +34,7 @@ void calcMedia();
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLab2", "IntLab2", "ricardo@email.com");
+SaIoTDeviceLib sonoff("IntLabESQ", "IntLabESQ", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"ON\"}");
 String senha = "12345678910";
 
@@ -63,8 +63,8 @@ void setup()
   delay(80);
   attachInterrupt(digitalPinToInterrupt(CHAVE), interrupcao, CHANGE);
   sonoff.addController(onOff);
-  sonoff.preSetCom(espClient, callback);
-  sonoff.startDefault(senha);
+  sonoff.preSetCom(espClient, callback, 60);
+  sonoff.start(senha);
   ultimoEstado = digitalRead(CHAVE);
   setupOTA();
   Serial.begin(115200);
@@ -170,28 +170,28 @@ void setupOTA(){
 
 
 void lightOn(){
-  digitalWrite(RELE, HIGH);
-  digitalWrite(LED, LOW);
+  digitalWrite(RELE, LOW);
+ // digitalWrite(LED, LOW);
 }
 void lightOff(){
-  digitalWrite(RELE, LOW);
-  digitalWrite(LED, HIGH);
+  digitalWrite(RELE, HIGH);
+ // digitalWrite(LED, HIGH);
 }
 
 
 void calcMedia(){
-  if(abs(millis() - delayLeitura ) > 20){
+  if(abs(millis() - delayLeitura ) > 25){
   if(leituras < 20 ){
     if(ultimoEstado^digitalRead(CHAVE)){
       media++;
     }
     leituras++;
     if(media >= 10){
-      leituras = 20;
+    leituras = 25;
     }
   }
 
-  else{
+  if(leituras >= 20){
     if(media >= 10){
       ultimoEstado = !ultimoEstado;
       stateLED = !stateLED;
@@ -206,9 +206,8 @@ void calcMedia(){
 }
 
 void interrupcao(){
-  if((abs(millis() - lastTime) > 150) && !lendo ){
+  if(!lendo ){
     lendo = true;
-    lastTime = millis();
   }
 }
 
