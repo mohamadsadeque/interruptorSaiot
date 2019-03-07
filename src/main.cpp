@@ -24,12 +24,10 @@ volatile bool stateLED_2 = false;
 const int LED = 10;
 unsigned long int lastTime_1 = 0;
 unsigned long int delayLeitura_1 = 0;
-bool ultimoEstado_1;
 short int media_1 = 0;
 short int leituras_1 = 0;
 unsigned long int lastTime_2 = 0;
 unsigned long int delayLeitura_2 = 0;
-bool ultimoEstado_2;
 short int media_2 = 0;
 short int leituras_2 = 0;
 const int RELE_1 = 13; // D7
@@ -48,7 +46,7 @@ void calcMedia(int);
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLabESQ23", "IntLabESQ32", "ricardo@email.com");
+SaIoTDeviceLib sonoff("IntLabESQ32", "IntLabESQ32", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"Geral\"}");
 SaIoTController toggle_1("{\"key\":\"on_1\",\"class\":\"toggle\",\"tag\":\"Esquerda\"}");
 SaIoTController toggle_2("{\"key\":\"on_2\",\"class\":\"toggle\",\"tag\":\"Direita\"}");
@@ -58,7 +56,6 @@ String senha = "12345678910";
 volatile bool reconfigura = false;
 
 //Funções controladores
-void interruptor_1();
 void setReconfigura();
 void setOn(String, int);
 //Funções MQTT
@@ -80,16 +77,15 @@ pinMode(RELE_1, OUTPUT);
  pinMode(RELE_2, OUTPUT);
 
   delay(80);
-  attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(CHAVE_2), interrupcao_2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, FALLING);
+  attachInterrupt(digitalPinToInterrupt(CHAVE_2), interrupcao_2, FALLING);
   sonoff.addController(onOff);
   sonoff.addController(toggle_1);
   sonoff.addController(toggle_2);
 
   sonoff.preSetCom(espClient, callback, 60);
   sonoff.start(senha);
-  ultimoEstado_1 = digitalRead(CHAVE_1);
-    ultimoEstado_2 = digitalRead(CHAVE_2);
+  
 
   setupOTA();
   Serial.begin(115200);
@@ -184,7 +180,7 @@ void setOn(String json, int controller)
   {
     stateLED_2 = true;
   }else {
-    stateLED_2=false;
+    stateLED_2= false;
   }
   }
 
@@ -248,9 +244,9 @@ void calcMedia(int chave){
   if(chave == CHAVE_1){
           Serial.println("TO NA LEITURA 1");
 
-  if(abs(millis() - delayLeitura_1 ) > 25){
+  if(abs(millis() - delayLeitura_1 ) > 15){
   if(leituras_1 < 20 ){
-    if(ultimoEstado_1^digitalRead(CHAVE_1)){
+    if(!digitalRead(CHAVE_1)){
       media_1++;
     }
     leituras_1++;
@@ -261,13 +257,13 @@ void calcMedia(int chave){
 
   if(leituras_1 >= 20){
     if(media_1 >= 10){
-      ultimoEstado_1 = !ultimoEstado_1;
       stateLED_1 = !stateLED_1;
       report(RELE_1);
     }
     media_1 = 0;
     leituras_1 = 0;
     lendo_1 = false;
+    lastTime_1 = millis();
   }
     delayLeitura_1 = millis();
   }
@@ -278,9 +274,9 @@ void calcMedia(int chave){
   if(chave == CHAVE_2){
       Serial.println("TO NA LEITURA 2");
 
-  if(abs(millis() - delayLeitura_2 ) > 25){
+  if(abs(millis() - delayLeitura_2 ) > 15){
   if(leituras_2 < 20 ){
-    if(ultimoEstado_2^digitalRead(CHAVE_2)){
+    if(!digitalRead(CHAVE_2)){
       media_2++;
     }
     leituras_2++;
@@ -291,13 +287,13 @@ void calcMedia(int chave){
 
   if(leituras_2 >= 20){
     if(media_2 >= 10){
-      ultimoEstado_2 = !ultimoEstado_2;
       stateLED_2 = !stateLED_2;
       report(RELE_2);
     }
     media_2 = 0;
     leituras_2 = 0;
     lendo_2 = false;
+    lastTime_2 = millis();
   }
     delayLeitura_2 = millis();
   }
@@ -305,13 +301,15 @@ void calcMedia(int chave){
 }
 
 void interrupcao_1(){
-  if(!lendo_1 ){
+  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 500 ) ){
     lendo_1 = true;
+    lastTime_1 = millis();
   }
 }
 void interrupcao_2(){
-  if(!lendo_2 ){
+  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 500 ) ){
     lendo_2 = true;
+    lastTime_2 = millis();
   }
 }
 
