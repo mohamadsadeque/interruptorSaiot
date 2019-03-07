@@ -244,7 +244,7 @@ void calcMedia(int chave){
   if(chave == CHAVE_1){
           Serial.println("TO NA LEITURA 1");
 
-  if(abs(millis() - delayLeitura_1 ) > 15){
+  if(abs(millis() - delayLeitura_1 ) > 10){
   if(leituras_1 < 20 ){
     if(!digitalRead(CHAVE_1)){
       media_1++;
@@ -274,8 +274,8 @@ void calcMedia(int chave){
   if(chave == CHAVE_2){
       Serial.println("TO NA LEITURA 2");
 
-  if(abs(millis() - delayLeitura_2 ) > 15){
-  if(leituras_2 < 20 ){
+  if(abs(millis() - delayLeitura_2 ) > 10){
+  if(leituras_2 < 15 ){
     if(!digitalRead(CHAVE_2)){
       media_2++;
     }
@@ -285,7 +285,7 @@ void calcMedia(int chave){
     }
   }
 
-  if(leituras_2 >= 20){
+  if(leituras_2 >= 15){
     if(media_2 >= 10){
       stateLED_2 = !stateLED_2;
       report(RELE_2);
@@ -301,15 +301,13 @@ void calcMedia(int chave){
 }
 
 void interrupcao_1(){
-  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 500 ) ){
+  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 300 ) ){
     lendo_1 = true;
-    lastTime_1 = millis();
   }
 }
 void interrupcao_2(){
-  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 500 ) ){
+  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 300 ) ){
     lendo_2 = true;
-    lastTime_2 = millis();
   }
 }
 
