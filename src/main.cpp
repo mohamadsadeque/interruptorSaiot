@@ -20,6 +20,8 @@ Hardware:
 
 volatile bool stateLED_1 = false;
 volatile bool stateLED_2 = false;
+volatile bool bloquear= false;
+volatile bool contando= false;
 
 const int LED = 10;
 unsigned long int lastTime_1 = 0;
@@ -30,6 +32,10 @@ unsigned long int lastTime_2 = 0;
 unsigned long int delayLeitura_2 = 0;
 short int media_2 = 0;
 short int leituras_2 = 0;
+unsigned long int reportTime= 0;
+unsigned long int countTime= 0;
+unsigned long int blockTime= 0;
+unsigned short int cont = 0;
 const int RELE_1 = 13; // D7
 const int RELE_2 = 15; // D8
 
@@ -38,7 +44,7 @@ bool lendo_2 = false;
 
 void lightOn(int);
 void lightOff(int);
-void report(int);
+void report();
 void interrupcao_1();
 void interrupcao_2();
 void calcMedia(int);
@@ -93,9 +99,7 @@ pinMode(RELE_1, OUTPUT);
 
 void loop()
 {
-//Serial.print("leitura butao: ");
-//Serial.println(digitalRead(BUTTON));
-  int tentativa = 0;
+
   sonoff.handleLoop();
 if(lendo_1){
   calcMedia(CHAVE_1);
@@ -104,17 +108,52 @@ if(lendo_2){
   calcMedia(CHAVE_2);
 }
  
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(500);
-    if (++tentativa>=5) {
-      ESP.restart();
-    }
+ if((cont == 1 || cont == 2) && !contando ){ 
+    countTime = millis();
+    contando = true;
   }
-  Serial.flush();
+
+  if(contando && (abs(millis() - countTime ) < 5000 ) ){ 
+    if(cont >= 8){
+      digitalWrite(LED, HIGH);
+    bloquear = true;
+    blockTime = millis();
+    Serial.println("BLOQUEOU");
+    cont = 0;
+    contando = false;
+    }
+    
+    
+  }
+
+if(contando && (abs(millis() - countTime ) > 5000 )){
+      cont = 0;
+      contando = false;
+          Serial.println("Resetou a contagem");
+
+    }
+
+  if(bloquear && (abs(millis() - blockTime ) > 10000 ) ){
+    Serial.println("Desbloqueou ");
+
+    bloquear = false;
+    digitalWrite(LED, LOW);
+
+  }
+
+
+
+
 
   stateLED_1 ? lightOn(RELE_1) : lightOff(RELE_1);
   stateLED_2 ? lightOn(RELE_2) : lightOff(RELE_2);
+
+ if((abs(millis() - reportTime ) > 300 )){  
+    report();
+    reportTime = millis();
+  }
+
+
 
 }
 
@@ -144,17 +183,20 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
   {
     Serial.println("Value: " + payloadS);
+  if(!bloquear){
     if ( payloadS == "1" )
    {
     stateLED_1 = true;
     stateLED_2 = true;
+    cont+=2;
    }else {
     stateLED_1=false;
     stateLED_2 = false;
-
+    cont+=2;
    }
-    report(RELE_1);
-    report(RELE_2);
+  }
+    report();
+    
 
   }
 }
@@ -166,12 +208,15 @@ void setReconfigura()
 
 void setOn(String json, int controller)
 {
+  if(!bloquear){
   if(controller == RELE_1){
   if ( json == "1" )
   {
     stateLED_1 = true;
+    cont++;
   }else {
     stateLED_1=false;
+      cont++;
   }
   }
 
@@ -179,12 +224,16 @@ void setOn(String json, int controller)
   if ( json == "1" )
   {
     stateLED_2 = true;
+        cont++;
+
   }else {
     stateLED_2= false;
+        cont++;
+
   }
   }
 
-
+  }
 }
 
 
@@ -242,7 +291,6 @@ void lightOff(int controller){
 void calcMedia(int chave){
 
   if(chave == CHAVE_1){
-          Serial.println("TO NA LEITURA 1");
 
   if(abs(millis() - delayLeitura_1 ) > 10){
   if(leituras_1 < 20 ){
@@ -258,12 +306,16 @@ void calcMedia(int chave){
   if(leituras_1 >= 20){
     if(media_1 >= 10){
       stateLED_1 = !stateLED_1;
-      report(RELE_1);
     }
     media_1 = 0;
     leituras_1 = 0;
     lendo_1 = false;
+    cont++;
     lastTime_1 = millis();
+    Serial.print("cont: ");
+        Serial.println(cont);
+
+
   }
     delayLeitura_1 = millis();
   }
@@ -272,7 +324,6 @@ void calcMedia(int chave){
 
   /////////////////////////////////////////// CHAVE 2
   if(chave == CHAVE_2){
-      Serial.println("TO NA LEITURA 2");
 
   if(abs(millis() - delayLeitura_2 ) > 10){
   if(leituras_2 < 15 ){
@@ -288,12 +339,14 @@ void calcMedia(int chave){
   if(leituras_2 >= 15){
     if(media_2 >= 10){
       stateLED_2 = !stateLED_2;
-      report(RELE_2);
     }
     media_2 = 0;
     leituras_2 = 0;
     lendo_2 = false;
+    cont++;
     lastTime_2 = millis();
+    Serial.print("cont: ");
+        Serial.println(cont);
   }
     delayLeitura_2 = millis();
   }
@@ -301,18 +354,18 @@ void calcMedia(int chave){
 }
 
 void interrupcao_1(){
-  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 300 ) ){
+  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 300 ) && !bloquear){
     lendo_1 = true;
   }
 }
 void interrupcao_2(){
-  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 300 ) ){
+  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 300 ) && !bloquear){
     lendo_2 = true;
   }
 }
 
-void report(int controller){
-  if(controller == RELE_1){
+void report(){
+ 
   if(stateLED_1){
       sonoff.reportController("on_1", "1");
   }
@@ -320,8 +373,7 @@ void report(int controller){
       sonoff.reportController("on_1", "0");
 
   }
-  }
-if(controller == RELE_2){
+
 if(stateLED_2){
       sonoff.reportController("on_2", "1");
   }
@@ -329,6 +381,12 @@ if(stateLED_2){
       sonoff.reportController("on_2", "0");
 
   }
+if(!stateLED_1 && !stateLED_2){
+      sonoff.reportController("on", "0");
 }
-  }
+if(stateLED_1 || stateLED_2){
+      sonoff.reportController("on", "1");
+}
 
+
+  }
