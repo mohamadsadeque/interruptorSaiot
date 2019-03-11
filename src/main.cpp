@@ -16,14 +16,21 @@ Hardware:
 #include <SaIoTDeviceLib.h>
 #define CHAVE_1 14
 #define CHAVE_2 12
+#define NUMMAXLEITURAS 20
+#define DELAYLEITURA 10
+#define MEDIA 10
+#define COUNTTIME 5000
+#define BLOCKTIME 5000
 
 
 volatile bool stateLED_1 = false;
 volatile bool stateLED_2 = false;
 volatile bool bloquear= false;
 volatile bool contando= false;
+volatile bool lendo_1 = false;
+volatile bool lendo_2 = false;
 
-const int LED = 10;
+//const int LED = 10;
 unsigned long int lastTime_1 = 0;
 unsigned long int delayLeitura_1 = 0;
 short int media_1 = 0;
@@ -39,8 +46,7 @@ unsigned short int cont = 0;
 const int RELE_1 = 13; // D7
 const int RELE_2 = 15; // D8
 
-bool lendo_1 = false;
-bool lendo_2 = false;
+
 
 void lightOn(int);
 void lightOff(int);
@@ -113,7 +119,7 @@ if(lendo_2){
     contando = true;
   }
 
-  if(contando && (abs(millis() - countTime ) < 5000 ) ){ 
+  if(contando && (abs(millis() - countTime ) < COUNTTIME ) ){ 
     if(cont >= 10){
     bloquear = true;
     blockTime = millis();
@@ -125,14 +131,14 @@ if(lendo_2){
     
   }
 
-if(contando && (abs(millis() - countTime ) > 5000 )){
+if(contando && (abs(millis() - countTime ) > COUNTTIME )){
       cont = 0;
       contando = false;
           Serial.println("Resetou a contagem");
 
     }
 
-  if(bloquear && (abs(millis() - blockTime ) > 5000 ) ){
+  if(bloquear && (abs(millis() - blockTime ) > BLOCKTIME ) ){
     Serial.println("Desbloqueou ");
     bloquear = false;
 
@@ -286,19 +292,19 @@ void calcMedia(int chave){
 
   if(chave == CHAVE_1){
 
-  if(abs(millis() - delayLeitura_1 ) > 10){
-  if(leituras_1 < 20 ){
+  if(abs(millis() - delayLeitura_1 ) >= DELAYLEITURA){
+  if(leituras_1 < NUMMAXLEITURAS){
     if(!digitalRead(CHAVE_1)){
       media_1++;
     }
     leituras_1++;
-    if(media_1 >= 10){
-    leituras_1 = 25;
+    if(media_1 >= MEDIA){
+    leituras_1 = NUMMAXLEITURAS;
     }
   }
 
-  if(leituras_1 >= 20){
-    if(media_1 >= 10){
+  if(leituras_1 >= NUMMAXLEITURAS){
+    if(media_1 >= MEDIA){
       stateLED_1 = !stateLED_1;
     }
     media_1 = 0;
@@ -319,19 +325,19 @@ void calcMedia(int chave){
   /////////////////////////////////////////// CHAVE 2
   if(chave == CHAVE_2){
 
-  if(abs(millis() - delayLeitura_2 ) > 10){
-  if(leituras_2 < 20 ){
+  if(abs(millis() - delayLeitura_2 ) >= DELAYLEITURA){
+  if(leituras_2 < NUMMAXLEITURAS ){
     if(!digitalRead(CHAVE_2)){
       media_2++;
     }
     leituras_2++;
-    if(media_2 >= 10){
-    leituras_2 = 25;
+    if(media_2 >= MEDIA){
+    leituras_2 = NUMMAXLEITURAS;
     }
   }
 
-  if(leituras_2 >= 20){
-    if(media_2 >= 10){
+  if(leituras_2 >= NUMMAXLEITURAS){
+    if(media_2 >= MEDIA){
       stateLED_2 = !stateLED_2;
     }
     media_2 = 0;
@@ -348,13 +354,13 @@ void calcMedia(int chave){
 }
 
 void interrupcao_1(){
-  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) > 500 ) ){
+  if(!lendo_1 &&  (abs(millis() - lastTime_1 ) >= 500 ) ){
     lendo_1 = true;
     lastTime_1 = millis();
   }
 }
 void interrupcao_2(){
-  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) > 500 ) ){
+  if(!lendo_2 &&   (abs(millis() - lastTime_2 ) >= 500 ) ){
     lendo_2 = true;
     lastTime_2 = millis();
   }
