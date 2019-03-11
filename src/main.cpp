@@ -114,8 +114,7 @@ if(lendo_2){
   }
 
   if(contando && (abs(millis() - countTime ) < 5000 ) ){ 
-    if(cont >= 8){
-      digitalWrite(LED, HIGH);
+    if(cont >= 10){
     bloquear = true;
     blockTime = millis();
     Serial.println("BLOQUEOU");
@@ -133,16 +132,11 @@ if(contando && (abs(millis() - countTime ) > 5000 )){
 
     }
 
-  if(bloquear && (abs(millis() - blockTime ) > 10000 ) ){
+  if(bloquear && (abs(millis() - blockTime ) > 5000 ) ){
     Serial.println("Desbloqueou ");
-
     bloquear = false;
-    digitalWrite(LED, LOW);
 
   }
-
-
-
 
 
   stateLED_1 ? lightOn(RELE_1) : lightOff(RELE_1);
@@ -292,7 +286,7 @@ void calcMedia(int chave){
 
   if(chave == CHAVE_1){
 
-  if(abs(millis() - delayLeitura_1 ) > 15){
+  if(abs(millis() - delayLeitura_1 ) > 10){
   if(leituras_1 < 20 ){
     if(!digitalRead(CHAVE_1)){
       media_1++;
@@ -321,11 +315,11 @@ void calcMedia(int chave){
   }
 
   }
-
+ 
   /////////////////////////////////////////// CHAVE 2
   if(chave == CHAVE_2){
 
-  if(abs(millis() - delayLeitura_2 ) > 15){
+  if(abs(millis() - delayLeitura_2 ) > 10){
   if(leituras_2 < 20 ){
     if(!digitalRead(CHAVE_2)){
       media_2++;
