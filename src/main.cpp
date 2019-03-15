@@ -17,12 +17,27 @@ Hardware:
 #define CHAVE_1 14
 #define CHAVE_2 12
 
+const int LED = 10;
+const int RELE_1 = D7; // D7
+const int RELE_2 = D8; // D8
+
+//estados
+volatile bool stateButton = false;
 volatile bool stateLED_1 = false;
 volatile bool stateLED_2 = false;
+volatile bool isChanged01 = false;
+volatile bool isChanged02 = false;
+
+//bloqueio
 volatile bool bloquear = false;
 volatile bool contando = false;
+unsigned long int blockTime = 0;
+unsigned short int cont = 0;
+unsigned long int countTime = 0;
 
-const int LED = 10;
+//processamento botões
+bool lendo_1 = false;
+bool lendo_2 = false;
 unsigned long int lastTime_1 = 0;
 unsigned long int delayLeitura_1 = 0;
 short int media_1 = 0;
@@ -31,19 +46,8 @@ unsigned long int lastTime_2 = 0;
 unsigned long int delayLeitura_2 = 0;
 short int media_2 = 0;
 short int leituras_2 = 0;
-unsigned long int reportTime = 0;
-unsigned long int countTime = 0;
-unsigned long int blockTime = 0;
-unsigned short int cont = 0;
-const int RELE_1 = 13; // D7
-const int RELE_2 = 15; // D8
 
-bool lendo_1 = false;
-bool lendo_2 = false;
-
-void lightOn(int);
-void lightOff(int);
-void report();
+int report(int, int);
 void interrupcao_1();
 void interrupcao_2();
 void calcMedia(int);
@@ -62,14 +66,13 @@ volatile bool reconfigura = false;
 
 //Funções controladores
 void setReconfigura();
-void setOn(String, int);
 //Funções MQTT
 void callback(char *topic, byte *payload, unsigned int length);
 //Funções padão
 void setup();
 void loop();
 //funções
-void setupOTA();
+void writeAndReport(int port, int value);
 
 void setup()
 {
@@ -89,8 +92,6 @@ void setup()
   sonoff.addController(toggle_2);
   sonoff.preSetCom(espClient, callback, 60);
   sonoff.start(senha);
-
-  setupOTA();
 }
 
 void loop()
@@ -134,22 +135,30 @@ void loop()
     digitalWrite(LED, LOW);
   }
 
-/*
-if(troca){
-  stateLED_1 ? lightOn(RELE_1) : lightOff(RELE_1);
-  stateLED_2 ? lightOn(RELE_2) : lightOff(RELE_2);
-  troca = false;
-}
-
-*/
-  stateLED_1 ? lightOn(RELE_1) : lightOff(RELE_1);
-  stateLED_2 ? lightOn(RELE_2) : lightOff(RELE_2);
-
-  if ((abs(millis() - reportTime) > 300)) //tirar o report daqui
+  if (isChanged01)
   {
-        report();
-
-    reportTime = millis();
+    cont++;
+    writeAndReport(RELE_1, stateLED_1);
+    isChanged01 = !isChanged01;
+  }
+  if (isChanged02)
+  {
+    cont++;
+    writeAndReport(RELE_2, stateLED_2);
+    isChanged02 = !isChanged02;
+  }
+  if (stateButton)
+  {
+    if(stateLED_1 == stateLED_2 && stateLED_1 == 0){
+      stateButton = stateLED_1;
+      //report
+      report(-1,stateButton);
+    }
+  }else{
+    if(stateLED_1 || stateLED_2){
+      stateButton = 1;
+      report(-1,stateButton);
+    }
   }
 }
 
@@ -171,7 +180,14 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println("Value: " + payloadS);
     if (!bloquear)
     {
-      setOn(payloadS, RELE_1);
+      cont++;
+      digitalWrite(RELE_1, payloadS.toInt());
+      stateLED_1 = payloadS.toInt();
+      Serial.print("Estado led_1: ");
+      Serial.println(stateLED_1);
+      //chegando um dado direto pra um dos botoes menores, atualiza o estado e escreve na porta
+    }else{
+      report(RELE_1,stateLED_1);
     }
   }
   if (strcmp(topic, (sonoff.getSerial() + toggle_2.getKey()).c_str()) == 0)
@@ -179,7 +195,13 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println("Value: " + payloadS);
     if (!bloquear)
     {
-      setOn(payloadS, RELE_2);
+      cont++;
+      digitalWrite(RELE_2, payloadS.toInt());
+      stateLED_2 = payloadS.toInt();
+      Serial.print("Estado led_2: ");
+      Serial.println(stateLED_2);
+    }else{
+      report(RELE_2,stateLED_2);
     }
   }
   if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
@@ -187,107 +209,32 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println("Value: " + payloadS);
     if (!bloquear)
     {
-      if (payloadS == "1")
-      {
-        stateLED_1 = true;
-        stateLED_2 = true;
-        cont += 2;
-      }
-      else
-      {
-        stateLED_1 = false;
-        stateLED_2 = false;
-        cont += 2;
-      }
+      cont += 2;
+      int valueStateRecived = payloadS.toInt();
+      stateButton = valueStateRecived;
+      stateLED_1 = valueStateRecived;
+      stateLED_2 = valueStateRecived;
+      writeAndReport(RELE_1, valueStateRecived);
+      writeAndReport(RELE_2, valueStateRecived);
+    }else{
+      report(-1,stateButton);
     }
-    report();
   }
 }
 
+void writeAndReport(int port, int value)
+{
+  digitalWrite(port, value);
+  String cKey;
+  report(port, value);
+}
 void setReconfigura()
 {
   reconfigura = true;
 }
 
-void setOn(String json, int controller)
-{
-  if (controller == RELE_1)
-  {
-    stateLED_1 = json.toInt();
-    cont++;
-  }
-  else
-  {
-    stateLED_2 = json.toInt();
-    cont++;
-  }
-}
-
-void setupOTA()
-{
-
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH)
-    {
-      type = "sketch";
-    }
-    else
-    { // U_SPIFFS
-      type = "filesystem";
-    }
-
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR)
-    {
-      Serial.println("Auth Failed");
-    }
-    else if (error == OTA_BEGIN_ERROR)
-    {
-      Serial.println("Begin Failed");
-    }
-    else if (error == OTA_CONNECT_ERROR)
-    {
-      Serial.println("Connect Failed");
-    }
-    else if (error == OTA_RECEIVE_ERROR)
-    {
-      Serial.println("Receive Failed");
-    }
-    else if (error == OTA_END_ERROR)
-    {
-      Serial.println("End Failed");
-    }
-  });
-  ArduinoOTA.begin();
-}
-
-void lightOn(int controller)
-{
-  digitalWrite(controller, HIGH);
-  // digitalWrite(LED, LOW);
-}
-void lightOff(int controller)
-{
-  digitalWrite(controller, LOW);
-  // digitalWrite(LED, HIGH);
-}
-
 void calcMedia(int chave)
 {
-
   if (chave == CHAVE_1)
   {
     if (abs(millis() - delayLeitura_1) > 10) //colocar define pra esse 10 -> intervalo de tempo entre cada leitura
@@ -310,14 +257,12 @@ void calcMedia(int chave)
         if (media_1 >= 10)
         {
           stateLED_1 = !stateLED_1;
+          isChanged01 = true;
         }
         media_1 = 0;
         leituras_1 = 0;
         lendo_1 = false;
-        cont++;
         lastTime_1 = millis();
-        Serial.print("cont: ");
-        Serial.println(cont);
       }
       delayLeitura_1 = millis();
     }
@@ -325,7 +270,6 @@ void calcMedia(int chave)
   /////////////////////////////////////////// CHAVE 2
   else
   {
-
     if (abs(millis() - delayLeitura_2) > 10)
     {
       if (leituras_2 < 15)
@@ -346,14 +290,12 @@ void calcMedia(int chave)
         if (media_2 >= 10)
         {
           stateLED_2 = !stateLED_2;
+          isChanged02 = true;
         }
         media_2 = 0;
         leituras_2 = 0;
         lendo_2 = false;
-        cont++;
         lastTime_2 = millis();
-        Serial.print("cont: ");
-        Serial.println(cont);
       }
       delayLeitura_2 = millis();
     }
@@ -375,31 +317,24 @@ void interrupcao_2()
   }
 }
 
-void report()
+int report(int type, int value)
 {
-  if (stateLED_1)
+  String cKey;
+  if (type == RELE_1)
   {
-    sonoff.reportController("on_1", "1");
+    cKey = toggle_1.getKey();
+  }
+  else if (type == RELE_2)
+  {
+    cKey = toggle_2.getKey();
   }
   else
   {
-    sonoff.reportController("on_1", "0");
+    cKey = onOff.getKey();
   }
 
-  if (stateLED_2)
+  if (!sonoff.reportController(cKey, value))
   {
-    sonoff.reportController("on_2", "1");
-  }
-  else
-  {
-    sonoff.reportController("on_2", "0");
-  }
-  if (!stateLED_1 && !stateLED_2)
-  {
-    sonoff.reportController("on", "0");
-  }
-  if (stateLED_1 || stateLED_2)
-  {
-    sonoff.reportController("on", "1");
+    Serial.println("Erro ao enviar dados pro SaIoT");
   }
 }
