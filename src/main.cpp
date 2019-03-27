@@ -55,7 +55,7 @@ void calcMedia(int);
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLabESQ32", "errrrr52", "ricardo@email.com");
+SaIoTDeviceLib sonoff("IntLabESQ32", "tInterrupt2103", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"Geral\"}");
 SaIoTController toggle_1("{\"key\":\"on_1\",\"class\":\"toggle\",\"tag\":\"Esquerda\"}");
 SaIoTController toggle_2("{\"key\":\"on_2\",\"class\":\"toggle\",\"tag\":\"Direita\"}");
@@ -106,7 +106,7 @@ void loop()
     calcMedia(CHAVE_2);
   }
 
-  if ((cont == 1 || cont == 2) && !contando) //inicio da contagem de vezes apertadas/tempo
+  if (cont != 0 && !contando) //inicio da contagem de vezes apertadas/tempo
   {
     countTime = millis();
     contando = true;
