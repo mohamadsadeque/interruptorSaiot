@@ -75,8 +75,8 @@ void setup()
   pinMode(RELE_2, OUTPUT);
 
   delay(80);
-  attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, RISING);
-  attachInterrupt(digitalPinToInterrupt(CHAVE_2), interrupcao_2, RISING);
+  attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, FALLING);
+  attachInterrupt(digitalPinToInterrupt(CHAVE_2), interrupcao_2, FALLING);
 
   //lib
   sonoff.addController(onOff);
@@ -228,7 +228,7 @@ void setReconfigura()
 
 void interrupcao_1()
 {
-  if (digitalRead(CHAVE_1) == HIGH)
+  if (digitalRead(CHAVE_1) == LOW)
   {
     if ((abs(micros() - lastTime_1) >= debouncing_time) && !isBlocked)
     {
@@ -240,7 +240,7 @@ void interrupcao_1()
 }
 void interrupcao_2()
 {
-  if (digitalRead(CHAVE_2) == HIGH)
+  if (digitalRead(CHAVE_2) == LOW)
   {
     if ((abs(micros() - lastTime_2) >= debouncing_time) && !isBlocked)
     {
