@@ -20,17 +20,17 @@ Hardware:
 #define CHAVE_2 12
 
 const int LED = 10;
-const int RELE_1 = D7; // D7
-const int RELE_2 = D8; // D8
+const int RELE_1 = D7;              // D7
+const int RELE_2 = D8;              // D8
 const int tempoCadaAmostragem = 10; //em MS
-const int maxLeituras = 60;
+const int maxLeituras = 20;
 
 //estados
 volatile bool stateButton = false;
 volatile bool stateLED_1 = false;
 volatile bool stateLED_2 = false;
-volatile bool isChanged01 = false;
-volatile bool isChanged02 = false;
+volatile bool wasReported_1 = true;
+volatile bool wasReported_2 = true;
 
 //bloqueio
 volatile bool bloquear = false;
@@ -65,7 +65,7 @@ void calcMedia(int);
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLabESQ32", "tInterrupt2103", "ricardo@email.com");
+SaIoTDeviceLib sonoff("Teste Int Off", "290319Test", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"Geral\"}");
 SaIoTController toggle_1("{\"key\":\"on_1\",\"class\":\"toggle\",\"tag\":\"Esquerda\"}");
 SaIoTController toggle_2("{\"key\":\"on_2\",\"class\":\"toggle\",\"tag\":\"Direita\"}");
@@ -99,7 +99,7 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, FALLING);
   attachInterrupt(digitalPinToInterrupt(CHAVE_2), interrupcao_2, FALLING);
 
-  //lib
+  //lib2
   sonoff.addController(onOff);
   sonoff.addController(toggle_1);
   sonoff.addController(toggle_2);
@@ -110,17 +110,44 @@ void setup()
 void loop()
 {
   sonoff.handleLoop();
-  if (isChanged01)
+  if ((cont == 1 || cont == 2) && !contando) //inicio da contagem de vezes apertadas/tempo
   {
-    cont++;
-    writeAndReport(RELE_1, stateLED_1);
-    isChanged01 = !isChanged01;
+    countTime = millis();
+    contando = true;
   }
-  if (isChanged02)
+  else if (cont >= 8)
   {
-    cont++;
-    writeAndReport(RELE_2, stateLED_2);
-    isChanged02 = !isChanged02;
+    //zerar e bloquear
+    digitalWrite(LED, HIGH);
+    bloquear = true;
+    blockTime = millis();
+    Serial.println("BLOQUEOU");
+    cont = 0;
+    contando = false;
+  }
+  else if (contando && (abs(millis() - countTime) > 10000))
+  {
+    //zerar
+    cont = 0;
+    contando = false;
+    Serial.println("Resetou a contagem");
+  }
+  if (bloquear && (abs(millis() - blockTime) > 10000))
+  {
+    Serial.println("Desbloqueou ");
+    bloquear = false;
+    digitalWrite(LED, LOW);
+  }
+
+  if (!wasReported_1)
+  {
+    report(RELE_1, stateLED_1);
+    wasReported_1 = true;
+  }
+  if (!wasReported_2)
+  {
+    report(RELE_2, stateLED_2);
+    wasReported_2 = true;
   }
   if (stateButton)
   {
@@ -178,13 +205,15 @@ void setAmostragem1()
     media_1++;
   }
   qntLeituras_1++;
-  if (media_1 >= (maxLeituras/2) || qntLeituras_1 >= maxLeituras)
+  if (media_1 >= (maxLeituras / 2) || qntLeituras_1 >= maxLeituras)
   {
-    if (media_1 >= (maxLeituras/2))
+    if (media_1 >= (maxLeituras / 2) && !bloquear)
     {
       stateLED_1 = !stateLED_1;
-      isChanged01 = true;
+      wasReported_1 = false;
       Serial.println("ACENDER LUZ 1");
+      cont++;
+      digitalWrite(RELE_1, stateLED_1);
       //acender luz
     }
     media_1 = 0;
@@ -194,7 +223,7 @@ void setAmostragem1()
     //desabilitar interrupt
     Serial.println("Desabilitou01");
     amostragem_1.detach();
-    return;  
+    return;
   }
 }
 
@@ -205,15 +234,15 @@ void setAmostragem2()
     media_2++;
   }
   qntLeituras_2++;
-  if (media_2 >= (maxLeituras/2) || qntLeituras_2 >= maxLeituras)
+  if (media_2 >= (maxLeituras / 2) || qntLeituras_2 >= maxLeituras)
   {
-    if (media_2 >= (maxLeituras/2))
+    if (media_2 >= (maxLeituras / 2) && !bloquear)
     {
       stateLED_2 = !stateLED_2;
-      isChanged02 = true;
+      wasReported_2 = false;
       Serial.println("ACENDER LUZ 2");
-      digitalWrite(LED_BUILTIN,!stateLED_2);
-      //acender luz
+      cont++;
+      digitalWrite(RELE_2, stateLED_2);
     }
     media_2 = 0;
     qntLeituras_2 = 0;
@@ -241,7 +270,8 @@ int report(int type, int value)
   {
     cKey = onOff.getKey();
   }
-
+  Serial.print("Reported: ");
+  Serial.println(cKey);
   if (!sonoff.reportController(cKey, value))
   {
     Serial.println("Erro ao enviar dados pro SaIoT");
@@ -264,7 +294,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_1.getKey()).c_str()) == 0)
   {
     Serial.println("Value: " + payloadS);
-    if (!bloquear)
+    if (!bloquear && wasReported_1)
     {
       cont++;
       digitalWrite(RELE_1, payloadS.toInt());
@@ -281,7 +311,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_2.getKey()).c_str()) == 0)
   {
     Serial.println("Value: " + payloadS);
-    if (!bloquear)
+    if (!bloquear && wasReported_2)
     {
       cont++;
       digitalWrite(RELE_2, payloadS.toInt());
@@ -297,7 +327,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
   {
     Serial.println("Value: " + payloadS);
-    if (!bloquear)
+    if (!bloquear && wasReported_1 && wasReported_2)
     {
       cont += 2;
       int valueStateRecived = payloadS.toInt();
