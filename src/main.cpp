@@ -74,10 +74,7 @@ volatile short int qntLeituras_3 = 0;
 volatile short int qntLeituras_4 = 0;
 
 //interrupçao interna
-Ticker amostragem_1;
-Ticker amostragem_2;
-Ticker amostragem_3;
-Ticker amostragem_4;
+Ticker amostragem;
 
 int report(int, int);
 void interrupcao_1();
@@ -104,10 +101,6 @@ void setup();
 void loop();
 //funções
 void writeAndReport(int port, int value);
-void ICACHE_RAM_ATTR setAmostragem1();
-void ICACHE_RAM_ATTR setAmostragem2();
-void ICACHE_RAM_ATTR setAmostragem3();
-void ICACHE_RAM_ATTR setAmostragem4();
 void ICACHE_RAM_ATTR setAmostragem();
 void verifyBlock();
 void verifyReport();
@@ -169,28 +162,29 @@ void verifyReport()
     report(RELE_4, stateLED_4);
     wasReported_4 = true;
   }
-  // if (stateButton)
-  // {
-  //   if (stateLED_1 == stateLED_2 && stateLED_1 == 0)
-  //   {
-  //     stateButton = stateLED_1;
-  //     //report
-  //     report(-1, stateButton);
-  //   }
-  // }
-  // else
-  // {
-  //   if (stateLED_1 || stateLED_2)
-  //   {
-  //     stateButton = 1;
-  //     report(-1, stateButton);
-  //   }
-  // }
+  /*
+ if (stateButton)
+ {
+    if (stateLED_1 == stateLED_2 && stateLED_1 == 0)
+    {
+      stateButton = stateLED_1;
+       //report
+       report(-1, stateButton);
+     }
+   }
+  else
+   {
+    if (stateLED_1 || stateLED_2)
+    {
+      stateButton = 1;
+      report(-1, stateButton);
+    }
+   }*/
 }
 
 void verifyBlock()
 {
-  if ((cont == 1 || cont == 2) && !contando) //inicio da contagem de vezes apertadas/tempo
+  if (cont != 0 && !contando) //inicio da contagem de vezes apertadas/tempo
   {
     countTime = millis();
     contando = true;
@@ -232,7 +226,7 @@ void interrupcao_1()
   if (!lendo_1 && (abs(millis() - lastTime_1) > 300) && !bloquear) //trocar 300 por um define -> intervalo de tempo entre o inicio de duas leituras
   {
     //Serial.println("Habilitou01");
-    amostragem_1.attach_ms(tempoCadaAmostragem, setAmostragem);
+    amostragem.attach_ms(tempoCadaAmostragem, setAmostragem);
     lendo_1 = true;
   }
 }
@@ -241,7 +235,7 @@ void interrupcao_2()
   if (!lendo_2 && (abs(millis() - lastTime_2) > 300) && !bloquear)
   {
     //Serial.println("Habilitou02");
-    amostragem_2.attach_ms(tempoCadaAmostragem, setAmostragem);
+    amostragem.attach_ms(tempoCadaAmostragem, setAmostragem);
     lendo_2 = true;
   }
 }
@@ -250,7 +244,7 @@ void interrupcao_3()
   if (!lendo_3 && (abs(millis() - lastTime_3) > 300) && !bloquear)
   {
     //Serial.println("Habilitou03");
-    amostragem_3.attach_ms(tempoCadaAmostragem, setAmostragem);
+    amostragem.attach_ms(tempoCadaAmostragem, setAmostragem);
     lendo_3 = true;
   }
 }
@@ -259,7 +253,7 @@ void interrupcao_4()
   if (!lendo_4 && (abs(millis() - lastTime_4) > 300) && !bloquear)
   {
     //Serial.println("Habilitou04");
-    amostragem_4.attach_ms(tempoCadaAmostragem, setAmostragem);
+    amostragem.attach_ms(tempoCadaAmostragem, setAmostragem);
     lendo_4 = true;
   }
 }
@@ -288,10 +282,10 @@ void ICACHE_RAM_ATTR setAmostragem()
       qntLeituras_1 = 0;
       lendo_1 = false;
       lastTime_1 = millis();
-      //Serial.println("Desabilitou01");
+      //Seria&&lendo_1 == lendo_2 l.println("Desabilitou01");
     }
   }
-  if (lendo_2)
+  if (lendo_2 )
   {
     if (!digitalRead(CHAVE_2))
     {
@@ -363,6 +357,11 @@ void ICACHE_RAM_ATTR setAmostragem()
       //Serial.println("Desabilitou04");
     }
   }
+  if(lendo_1 == lendo_2 && lendo_1 == lendo_3 && lendo_1 == lendo_4 && !lendo_1){
+    amostragem.detach(); // Desabilita interrupção interna
+  }
+
+
 }
 
 int report(int type, int value)
@@ -417,8 +416,10 @@ void callback(char *topic, byte *payload, unsigned int length)
       cont++;
       digitalWrite(RELE_1, payloadS.toInt());
       stateLED_1 = payloadS.toInt();
-      //Serial.print("Estado led_1: ");
-      //Serial.println(stateLED_1);
+      
+
+
+      
       //chegando um dado direto pra um dos botoes menores, atualiza o estado e escreve na porta
     }
     else
@@ -484,8 +485,12 @@ void callback(char *topic, byte *payload, unsigned int length)
       stateButton = valueStateRecived;
       stateLED_1 = valueStateRecived;
       stateLED_2 = valueStateRecived;
+       stateLED_3 = valueStateRecived;
+      stateLED_4 = valueStateRecived;
       writeAndReport(RELE_1, valueStateRecived);
       writeAndReport(RELE_2, valueStateRecived);
+      writeAndReport(RELE_3, valueStateRecived);
+      writeAndReport(RELE_4, valueStateRecived);
     }
     else
     {
