@@ -16,7 +16,6 @@ Hardware:
 #include <SaIoTDeviceLib.h>
 #include <Ticker.h>
 
-
 // #define CHAVE_1 14
 // #define CHAVE_2 12
 //chaves
@@ -29,14 +28,14 @@ const int LED = LED_BUILTIN;
 const int RELE_1 = 0; //D3
 const int RELE_2 = 3; //RX
 const int RELE_3 = 4; //D2
-const int RELE_4 = 2; //D4
+const int RELE_4 = 5; //D1
 
 //Parametros Amostragem
 const int tempoCadaAmostragem = 10; //em MS
 const int maxLeituras = 20;
 
 //estados
-volatile bool stateButton = false;
+volatile bool stateOnOff = false;
 volatile bool stateLED_1 = false;
 volatile bool stateLED_2 = false;
 volatile bool stateLED_3 = false;
@@ -86,7 +85,7 @@ void interrupcao_4();
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("Teste Int Off", "300319V4B", "ricardo@email.com");
+SaIoTDeviceLib sonoff("Lampadas", "300319V4B", "ricardo@email.com");
 SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"Geral\"}");
 SaIoTController toggle_1("{\"key\":\"on_1\",\"class\":\"toggle\",\"tag\":\"01\"}");
 SaIoTController toggle_2("{\"key\":\"on_2\",\"class\":\"toggle\",\"tag\":\"02\"}");
@@ -137,49 +136,43 @@ void setup()
 void loop()
 {
   sonoff.handleLoop();
-  //verifyBlock();
+  verifyBlock();
   verifyReport();
 }
 void verifyReport()
 {
   if (!wasReported_1)
   {
-    report(RELE_1, stateLED_1);
-    wasReported_1 = true;
+    wasReported_1 = !report(RELE_1, stateLED_1);
   }
   if (!wasReported_2)
   {
-    report(RELE_2, stateLED_2);
-    wasReported_2 = true;
+    wasReported_2 = !report(RELE_2, stateLED_2);
   }
   if (!wasReported_3)
   {
-    report(RELE_3, stateLED_3);
-    wasReported_3 = true;
+    wasReported_3 = !report(RELE_3, stateLED_3);
   }
   if (!wasReported_4)
   {
-    report(RELE_4, stateLED_4);
-    wasReported_4 = true;
+    wasReported_4 = !report(RELE_4, stateLED_4);
   }
-  /*
- if (stateButton)
- {
-    if (stateLED_1 == stateLED_2 && stateLED_1 == 0)
+  if (stateOnOff)
+  {
+    if (!stateLED_1 && !stateLED_2 && !stateLED_3 && !stateLED_4)
     {
-      stateButton = stateLED_1;
-       //report
-       report(-1, stateButton);
-     }
-   }
-  else
-   {
-    if (stateLED_1 || stateLED_2)
-    {
-      stateButton = 1;
-      report(-1, stateButton);
+      stateOnOff = 0;
+      report(-1, stateOnOff);
     }
-   }*/
+  }
+  else
+  {
+    if (stateLED_1 || stateLED_2 || stateLED_3 || stateLED_4)
+    {
+      stateOnOff = 1;
+      report(-1, stateOnOff);
+    }
+  }
 }
 
 void verifyBlock()
@@ -189,7 +182,7 @@ void verifyBlock()
     countTime = millis();
     contando = true;
   }
-  else if (cont >= 8)
+  else if (cont >= 12)
   {
     //zerar e bloquear
     digitalWrite(LED, HIGH);
@@ -282,10 +275,10 @@ void ICACHE_RAM_ATTR setAmostragem()
       qntLeituras_1 = 0;
       lendo_1 = false;
       lastTime_1 = millis();
-      //Seria&&lendo_1 == lendo_2 l.println("Desabilitou01");
+
     }
   }
-  if (lendo_2 )
+  if (lendo_2)
   {
     if (!digitalRead(CHAVE_2))
     {
@@ -333,7 +326,7 @@ void ICACHE_RAM_ATTR setAmostragem()
       //Serial.println("Desabilitou03");
     }
   }
-  if(lendo_4)
+  if (lendo_4)
   {
     if (!digitalRead(CHAVE_4))
     {
@@ -357,11 +350,10 @@ void ICACHE_RAM_ATTR setAmostragem()
       //Serial.println("Desabilitou04");
     }
   }
-  if(lendo_1 == lendo_2 && lendo_1 == lendo_3 && lendo_1 == lendo_4 && !lendo_1){
+  if (!lendo_1 && !lendo_2 && !lendo_3 && !lendo_4)
+  {
     amostragem.detach(); // Desabilita interrupção interna
   }
-
-
 }
 
 int report(int type, int value)
@@ -387,12 +379,7 @@ int report(int type, int value)
   {
     cKey = onOff.getKey();
   }
-  //Serial.print("Reported: ");
-  //Serial.println(cKey);
-  if (!sonoff.reportController(cKey, value))
-  {
-    //Serial.println("Erro ao enviar dados pro SaIoT");
-  }
+  return !sonoff.reportController(cKey, value);
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
@@ -411,15 +398,12 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_1.getKey()).c_str()) == 0)
   {
     //Serial.println("Value: " + payloadS);
-    if (!bloquear && wasReported_1)
+    if (!bloquear)
     {
       cont++;
       digitalWrite(RELE_1, payloadS.toInt());
       stateLED_1 = payloadS.toInt();
-      
 
-
-      
       //chegando um dado direto pra um dos botoes menores, atualiza o estado e escreve na porta
     }
     else
@@ -430,7 +414,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_2.getKey()).c_str()) == 0)
   {
     //Serial.println("Value: " + payloadS);
-    if (!bloquear && wasReported_2)
+    if (!bloquear)
     {
       cont++;
       digitalWrite(RELE_2, payloadS.toInt());
@@ -446,7 +430,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_3.getKey()).c_str()) == 0)
   {
     //Serial.println("Value: " + payloadS);
-    if (!bloquear && wasReported_3)
+    if (!bloquear)
     {
       cont++;
       digitalWrite(RELE_3, payloadS.toInt());
@@ -462,7 +446,7 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + toggle_4.getKey()).c_str()) == 0)
   {
     //Serial.println("Value: " + payloadS);
-    if (!bloquear && wasReported_4)
+    if (!bloquear)
     {
       cont++;
       digitalWrite(RELE_4, payloadS.toInt());
@@ -478,14 +462,14 @@ void callback(char *topic, byte *payload, unsigned int length)
   if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
   {
     //Serial.println("Value: " + payloadS);
-    if (!bloquear && wasReported_1 && wasReported_2)
+    if (!bloquear)
     {
-      cont += 2;
+      cont += 4;
       int valueStateRecived = payloadS.toInt();
-      stateButton = valueStateRecived;
+      stateOnOff = valueStateRecived;
       stateLED_1 = valueStateRecived;
       stateLED_2 = valueStateRecived;
-       stateLED_3 = valueStateRecived;
+      stateLED_3 = valueStateRecived;
       stateLED_4 = valueStateRecived;
       writeAndReport(RELE_1, valueStateRecived);
       writeAndReport(RELE_2, valueStateRecived);
@@ -494,7 +478,7 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
     else
     {
-      report(-1, stateButton);
+      report(-1, stateOnOff);
     }
   }
 }
