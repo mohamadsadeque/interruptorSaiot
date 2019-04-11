@@ -25,10 +25,10 @@ const int CHAVE_3 = 12; //D6
 const int CHAVE_4 = 14; //D5
 //reles
 const int LED = LED_BUILTIN;
-const int RELE_1 = 0; //D3
-const int RELE_2 = 3; //RX
+const int RELE_1 = 3; //Rx
+const int RELE_2 = 5; //D1
 const int RELE_3 = 4; //D2
-const int RELE_4 = 5; //D1
+const int RELE_4 = 0; //D3
 
 //Parametros Amostragem
 const int tempoCadaAmostragem = 10; //em MS
@@ -129,7 +129,7 @@ void setup()
   sonoff.addController(toggle_2);
   sonoff.addController(toggle_3);
   sonoff.addController(toggle_4);
-  sonoff.preSetCom(espClient, callback, 60);
+  sonoff.preSetCom(espClient, callback, 240);
   sonoff.start(senha);
 }
 
