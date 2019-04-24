@@ -376,7 +376,7 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword)
     return true;
   }
 
-  return startConfigPortal(apName, apPassword);
+  return startConfigPortal(apName, apPassword); //abrir o modo ap 
 }
 
 boolean WiFiManager::startConfigPortal(char const *apName, char const *apPassword)
@@ -389,7 +389,7 @@ boolean WiFiManager::startConfigPortal(char const *apName, char const *apPasswor
   _apPassword = apPassword;
 
   //notify we entered AP mode
-  if (_apcallback != NULL)
+  if (_apcallback != NULL) //se setar uma função pro ap callback, vai utiliza-la e continuar o fluxo
   {
     _apcallback(this);
   }
@@ -469,17 +469,20 @@ int WiFiManager::connectWifi(String ssid, String pass)
   //check if we have ssid and pass and force those, if not, try with last saved values
   if (ssid != "")
   {
+    //quando o cara vem da pag ap, depois das config
     WiFi.begin(ssid.c_str(), pass.c_str());
   }
   else
   {
     if (WiFi.SSID())
     {
+      //quando o cara não passa nada (primeira vez ao ligar, ou quando da o timeout)
       DEBUG_WM("Using last saved values, should be faster");
       //trying to fix connection in progress hanging
       ETS_UART_INTR_DISABLE();
       wifi_station_disconnect();
       ETS_UART_INTR_ENABLE();
+      //AQUI QUE DA PAU
 
       WiFi.begin();
     }

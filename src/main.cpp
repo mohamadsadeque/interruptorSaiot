@@ -1,223 +1,227 @@
-/*
-Projeto para controle da porta de sala
-v 1.1.2
-Software:
-  Danielly
-  Patricio Oliveira
-  Ricardo Cavalcanti
-  Mohamad Sadeque
-Hardware:
-  Wesley Wagner
-  Mohamad Sadeque
-*/
+
 
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <SaIoTDeviceLib.h>
-#define CHAVE 14
+#include <Ticker.h>
 
-volatile bool stateLED = true;
-const int LED = 10;
-unsigned long int lastTime = 0;
-unsigned long int delayLeitura = 0;
-bool ultimoEstado;
-short int media = 0;
-short int leituras = 0;
-const int RELE = 13;
-bool lendo = false;
-void lightOn();
-void lightOff();
-void report(bool);
-void interrupcao();
-void calcMedia();
+
+//chaves
+const int CHAVE_1 = 12;  //D6
+
+//reles
+const int LED = LED_BUILTIN;
+const int RELE_1 = 13; //D7
+
+
+//Parametros Amostragem
+const int tempoCadaAmostragem = 10; //em MS
+const int maxLeituras = 20;
+
+//estados
+volatile bool stateOnOff = false;
+volatile bool stateLED_1 = false;
+volatile bool wasReported_1 = true;
+
+
+//bloqueio
+volatile bool bloquear = false;
+volatile bool contando = false;
+unsigned long int blockTime = 0;
+unsigned short int cont = 0;
+unsigned long int countTime = 0;
+
+//processamento botões
+volatile bool lendo_1 = false;
+unsigned long int lastTime_1 = 0;
+short int media_1 = 0;
+short int leituras_1 = 0;
+volatile short int qntLeituras_1 = 0;
+
+
+
+//interrupçao interna
+Ticker amostragem;
+
+int report(int, int);
+void interrupcao_1();
+
+
 //Parametros da conexão
 WiFiClient espClient;
 
 //Parametros do device
-SaIoTDeviceLib sonoff("IntLabESQ", "IntLabESQ", "ricardo@email.com");
-SaIoTController onOff("{\"key\":\"on\",\"class\":\"onoff\",\"tag\":\"ON\"}");
+SaIoTDeviceLib sonoff("Lampadas", "2404LAB", "ricardo@email.com");
+SaIoTController toggle_1("{\"key\":\"on_1\",\"class\":\"toggle\",\"tag\":\"01\"}");
 String senha = "12345678910";
 
-//Variveis controladores
-volatile bool reconfigura = false;
-
-//Funções controladores
-void interruptor();
-void setReconfigura();
-void setOn(String);
 //Funções MQTT
 void callback(char *topic, byte *payload, unsigned int length);
 //Funções padão
 void setup();
 void loop();
 //funções
-void setupOTA();
+void writeAndReport(int port, int value);
+void ICACHE_RAM_ATTR setAmostragem();
+void verifyBlock();
+void verifyReport();
 
 void setup()
 {
-  Serial.begin(115200);
-  //Serial.println("------------setup----------");
-  // pinMode(RECONFIGURAPIN, INPUT_PULLUP);
-  pinMode(CHAVE, INPUT_PULLUP);
-  pinMode(RELE, OUTPUT);
+  //Serial.begin(115200);
+  pinMode(CHAVE_1, INPUT_PULLUP);
+  pinMode(RELE_1, OUTPUT);
+  pinMode(LED, OUTPUT);
+
   delay(80);
-  attachInterrupt(digitalPinToInterrupt(CHAVE), interrupcao, CHANGE);
-  sonoff.addController(onOff);
-  sonoff.preSetCom(espClient, callback, 60);
+  attachInterrupt(digitalPinToInterrupt(CHAVE_1), interrupcao_1, FALLING);
+
+
+  //lib2
+  sonoff.addController(toggle_1);
+  sonoff.preSetCom(espClient, callback, 240);
   sonoff.start(senha);
-  ultimoEstado = digitalRead(CHAVE);
-  setupOTA();
-  Serial.begin(115200);
 }
 
 void loop()
 {
-//Serial.print("leitura butao: ");
-//Serial.println(digitalRead(BUTTON));
-  int tentativa = 0;
   sonoff.handleLoop();
-if(lendo){
-  calcMedia();
+  verifyBlock();
+  verifyReport();
 }
+void verifyReport()
+{
+  if (!wasReported_1)
+  {
+    wasReported_1 = !report(RELE_1, stateLED_1);
+  }
  
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(500);
-    if (++tentativa>=5) {
-      ESP.restart();
+}
+
+void verifyBlock()
+{
+  if (cont != 0 && !contando) //inicio da contagem de vezes apertadas/tempo
+  {
+    countTime = millis();
+    contando = true;
+  }
+  else if (cont >= 12)
+  {
+    //zerar e bloquear
+    digitalWrite(LED, HIGH);
+    bloquear = true;
+    blockTime = millis();
+    //Serial.println("BLOQUEOU");
+    cont = 0;
+    contando = false;
+  }
+  else if (contando && (abs(millis() - countTime) > 10000))
+  {
+    //zerar
+    cont = 0;
+    contando = false;
+    //Serial.println("Resetou a contagem");
+  }
+  if (bloquear && (abs(millis() - blockTime) > 10000))
+  {
+    //Serial.println("Desbloqueou ");
+    bloquear = false;
+    digitalWrite(LED, LOW);
+  }
+}
+
+void writeAndReport(int port, int value)
+{
+  digitalWrite(port, value);
+  String cKey;
+  report(port, value);
+}
+
+void interrupcao_1()
+{
+  if (!lendo_1 && (abs(millis() - lastTime_1) > 300) && !bloquear) //trocar 300 por um define -> intervalo de tempo entre o inicio de duas leituras
+  {
+    //Serial.println("Habilitou01");
+    amostragem.attach_ms(tempoCadaAmostragem, setAmostragem);
+    lendo_1 = true;
+  }
+}
+
+
+void ICACHE_RAM_ATTR setAmostragem()
+{
+  if (lendo_1)
+  {
+    if (!digitalRead(CHAVE_1))
+    {
+      media_1++;
+    }
+    qntLeituras_1++;
+    if (media_1 >= (maxLeituras / 2) || qntLeituras_1 >= maxLeituras)
+    {
+      if (media_1 >= (maxLeituras / 2) && !bloquear)
+      {
+        stateLED_1 = !stateLED_1;
+        wasReported_1 = false;
+        //Serial.println("ACENDER LUZ 1");
+        cont++;
+        digitalWrite(RELE_1, stateLED_1);
+        //acender luz
+      }
+      media_1 = 0;
+      qntLeituras_1 = 0;
+      lendo_1 = false;
+      lastTime_1 = millis();
+
     }
   }
-  Serial.flush();
 
-  stateLED ? lightOn() : lightOff();
+  if (!lendo_1 )
+  {
+    amostragem.detach(); // Desabilita interrupção interna
+  }
+
+}
+
+int report(int type, int value)
+{
+  String cKey;
+  if (type == RELE_1)
+  {
+    cKey = toggle_1.getKey();
+  }
+  
+  return !sonoff.reportController(cKey, value);
 }
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
   String payloadS;
-  Serial.print("Topic: ");
-  Serial.println(topic);
+  //Serial.print("Topic: ");
+  //Serial.println(topic);
   for (unsigned int i = 0; i < length; i++)
   {
     payloadS += (char)payload[i];
   }
   if (strcmp(topic, sonoff.getSerial().c_str()) == 0)
   {
-    Serial.println("SerialLog: " + payloadS);
+    //Serial.println("SerialLog: " + payloadS);
   }
-  if (strcmp(topic, (sonoff.getSerial() + onOff.getKey()).c_str()) == 0)
+  if (strcmp(topic, (sonoff.getSerial() + toggle_1.getKey()).c_str()) == 0)
   {
-    Serial.println("Value: " + payloadS);
-    setOn(payloadS);
-  }
-}
+    //Serial.println("Value: " + payloadS);
+    if (!bloquear)
+    {
+      cont++;
+      digitalWrite(RELE_1, payloadS.toInt());
+      stateLED_1 = payloadS.toInt();
 
-void setReconfigura()
-{
-  reconfigura = true;
-}
-
-void setOn(String json)
-{
-  if ( json == "1" )
-  {
-    stateLED = true;
-  }else {
-    stateLED=false;
-  }
-}
-
-
-
-void setupOTA(){
-
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH) {
-      type = "sketch";
-    } else { // U_SPIFFS
-      type = "filesystem";
+      //chegando um dado direto pra um dos botoes menores, atualiza o estado e escreve na porta
     }
-
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    Serial.println("Start updating " + type);
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) {
-      Serial.println("Auth Failed");
-    } else if (error == OTA_BEGIN_ERROR) {
-      Serial.println("Begin Failed");
-    } else if (error == OTA_CONNECT_ERROR) {
-      Serial.println("Connect Failed");
-    } else if (error == OTA_RECEIVE_ERROR) {
-      Serial.println("Receive Failed");
-    } else if (error == OTA_END_ERROR) {
-      Serial.println("End Failed");
-    }
-  });
-  ArduinoOTA.begin();
-
-}
-
-
-void lightOn(){
-  digitalWrite(RELE, LOW);
- // digitalWrite(LED, LOW);
-}
-void lightOff(){
-  digitalWrite(RELE, HIGH);
- // digitalWrite(LED, HIGH);
-}
-
-
-void calcMedia(){
-  if(abs(millis() - delayLeitura ) > 25){
-  if(leituras < 20 ){
-    if(ultimoEstado^digitalRead(CHAVE)){
-      media++;
-    }
-    leituras++;
-    if(media >= 10){
-    leituras = 25;
+    else
+    {
+      report(RELE_1, stateLED_1);
     }
   }
 
-  if(leituras >= 20){
-    if(media >= 10){
-      ultimoEstado = !ultimoEstado;
-      stateLED = !stateLED;
-      report(stateLED);
-    }
-    media = 0;
-    leituras = 0;
-    lendo = false;
-  }
-    delayLeitura = millis();
-  }
 }
-
-void interrupcao(){
-  if(!lendo ){
-    lendo = true;
-  }
-}
-
-void report(bool stateLED){
-  if(stateLED){
-      sonoff.reportController("on", "1");
-  }
-  else{
-      sonoff.reportController("on", "0");
-
-  }
-  }
-
